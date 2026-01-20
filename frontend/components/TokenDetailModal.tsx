@@ -124,7 +124,11 @@ export default function TokenDetailModal({
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
               Price Chart
             </h3>
-            <TokenChart />
+            <TokenChart 
+              tokenAddress={token.address} 
+              symbol={token.symbol} 
+              score={token.score}
+            />
           </div>
 
           {/* Analysis Details */}
