@@ -66,12 +66,21 @@ export default function PortfolioPage() {
 
   const loadPositions = async () => {
     setLoading(true)
-    // TODO: Load from Supabase/API
-    // Mock data for now
-    setTimeout(() => {
+    try {
+      const response = await fetch('http://localhost:8000/api/portfolio')
+      if (response.ok) {
+        const data = await response.json()
+        setPositions(data.positions || [])
+      } else {
+        console.error('Failed to load positions')
+        setPositions([])
+      }
+    } catch (error) {
+      console.error('Error loading positions:', error)
       setPositions([])
+    } finally {
       setLoading(false)
-    }, 500)
+    }
   }
 
   if (!authChecked) {
