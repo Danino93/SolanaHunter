@@ -25,7 +25,8 @@ import {
   Bot,
   Settings,
   Sparkles,
-  LogOut
+  LogOut,
+  Zap
 } from 'lucide-react'
 import { clearAuthToken } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -42,6 +43,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: 'דשבורד', href: '/', icon: <LayoutDashboard className="w-5 h-5" /> },
+  { name: 'שווקים חיים', href: '/markets', icon: <Zap className="w-5 h-5" /> },
   { name: 'תיק השקעות', href: '/portfolio', icon: <Wallet className="w-5 h-5" /> },
   { name: 'מסחר', href: '/trading', icon: <TrendingUp className="w-5 h-5" /> },
   { name: 'אנליטיקה', href: '/analytics', icon: <BarChart3 className="w-5 h-5" /> },
