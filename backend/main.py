@@ -330,9 +330,25 @@ class SolanaHunter:
             if self.contract_checker:
                 await self.contract_checker.__aexit__(None, None, None)
     
+    async def stop(self):
+        """Stop the bot (alias for shutdown)"""
+        self.running = False
+        await self.shutdown()
+    
+    def pause(self):
+        """Pause scanning"""
+        self._paused = True
+        logger.info("⏸️ Bot paused")
+    
+    def resume(self):
+        """Resume scanning"""
+        self._paused = False
+        logger.info("▶️ Bot resumed")
+    
     async def shutdown(self):
         """Cleanup and shutdown"""
         logger.info("🔄 Shutting down...")
+        self.running = False
         await self.scanner.close()
         await self.holder_analyzer.close()
         await self.discovery_engine.close()

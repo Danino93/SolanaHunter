@@ -16,6 +16,7 @@ import { LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts'
 interface TokenChartProps {
   tokenAddress: string
   symbol: string
+  score?: number
   className?: string
 }
 
@@ -39,12 +40,23 @@ const generateMockData = (): Array<{ time: string; price: number }> => {
   return data
 }
 
-export default function TokenChart({ tokenAddress, symbol, className = '' }: TokenChartProps) {
+export default function TokenChart({ tokenAddress, symbol, score, className = '' }: TokenChartProps) {
   const data = generateMockData()
   const currentPrice = data[data.length - 1].price
   const previousPrice = data[0].price
   const change = ((currentPrice - previousPrice) / previousPrice) * 100
   const isPositive = change >= 0
+  
+  // צבע דינמי לפי score (אם יש)
+  const getLineColor = () => {
+    if (score !== undefined) {
+      if (score >= 85) return '#10b981' // ירוק - מצוין
+      if (score >= 70) return '#3b82f6' // כחול - טוב
+      if (score >= 50) return '#f59e0b' // כתום - בינוני
+      return '#ef4444' // אדום - נמוך
+    }
+    return isPositive ? '#10b981' : '#ef4444'
+  }
 
   return (
     <div className={`relative ${className}`}>
@@ -68,7 +80,7 @@ export default function TokenChart({ tokenAddress, symbol, className = '' }: Tok
           <Line
             type="monotone"
             dataKey="price"
-            stroke={isPositive ? '#10b981' : '#ef4444'}
+            stroke={getLineColor()}
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 3 }}
