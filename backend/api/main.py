@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 
-from api.routes import tokens, bot, portfolio, trading, analytics, settings
+from api.routes import tokens, bot, portfolio, trading, analytics, settings, dexscreener
 from api.dependencies import set_solanahunter_instance
 
 # יצירת FastAPI app
@@ -51,6 +51,7 @@ app.include_router(portfolio.router, prefix="/api/portfolio", tags=["portfolio"]
 app.include_router(trading.router, prefix="/api/trading", tags=["trading"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
+app.include_router(dexscreener.router, prefix="/api/dexscreener", tags=["dexscreener"])
 
 
 @app.get("/")

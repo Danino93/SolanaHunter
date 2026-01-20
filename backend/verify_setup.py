@@ -20,6 +20,7 @@ python verify_setup.py
 """
 
 import sys
+import argparse
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
@@ -71,7 +72,7 @@ def check_logs_dir():
     return False, "logs/ directory not found (will be created automatically)"
 
 
-def main():
+def main(skip_api_checks: bool = False):
     """Run all checks"""
     try:
         console.print(Panel.fit(
@@ -82,6 +83,9 @@ def main():
         print("=" * 50)
         print("SolanaHunter Setup Verification")
         print("=" * 50)
+    
+    if skip_api_checks:
+        print("\n⚠️  Skipping API connection checks (CI mode)\n")
     
     table = Table(show_header=True, header_style="bold")
     table.add_column("Check", style="cyan")
@@ -198,4 +202,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Verify SolanaHunter setup")
+    parser.add_argument(
+        "--skip-api-checks",
+        action="store_true",
+        help="Skip API connection checks (useful for CI)"
+    )
+    args = parser.parse_args()
+    main(skip_api_checks=args.skip_api_checks)
