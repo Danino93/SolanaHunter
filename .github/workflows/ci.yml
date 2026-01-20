@@ -230,10 +230,11 @@ jobs:
         fi
         
         # Check for .env files (should not be committed)
-        # But allow .env.example files
-        if find . -name ".env" -not -path "./.git/*" -not -name "*.example" -not -name "env.example"; then
+        # But allow .env.example files and env.example files
+        env_files=$(find . -name ".env" -not -path "./.git/*" -not -name "*.example" -not -name "env.example" 2>/dev/null || true)
+        if [ -n "$env_files" ]; then
           echo "❌ .env file found in repository! This should not be committed."
-          echo "   Found: $(find . -name '.env' -not -path './.git/*' -not -name '*.example' -not -name 'env.example')"
+          echo "   Found: $env_files"
           exit 1
         else
           echo "✅ No .env files in repository (only .env.example files allowed)"

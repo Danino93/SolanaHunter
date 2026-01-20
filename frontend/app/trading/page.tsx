@@ -15,8 +15,8 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { isAuthenticated } from '@/lib/auth'
 import DashboardLayout from '@/components/DashboardLayout'
 import { 
@@ -29,9 +29,8 @@ import {
 } from 'lucide-react'
 import { buyToken, sellToken } from '@/lib/api'
 import { showToast } from '@/components/Toast'
-import { useSearchParams } from 'next/navigation'
 
-export default function TradingPage() {
+function TradingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [authChecked, setAuthChecked] = useState(false)
@@ -241,5 +240,19 @@ export default function TradingPage() {
         </main>
       </div>
     </DashboardLayout>
+  )
+}
+
+export default function TradingPage() {
+  return (
+    <Suspense fallback={
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-screen">
+          <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      </DashboardLayout>
+    }>
+      <TradingContent />
+    </Suspense>
   )
 }
