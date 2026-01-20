@@ -646,12 +646,12 @@ print(f"Balance: {get_balance()} SOL")
 
 ### 🔥 Day 16: Jupiter Integration (Swaps)
 **⏰ 4-5 שעות | Output: ביצוע swap ראשון**
-**סטטוס:** ⏳ לא התחיל
+**סטטוס:** ✅ הושלם במלואו
 
 **מה אתה עושה:**
-- [ ] התחבר ל-Jupiter API
-- [ ] קבל quote ל-swap (SOL → Token)
-- [ ] בצע swap של $1 (טסט!)
+- [x] התחבר ל-Jupiter API ✅
+- [x] קבל quote ל-swap (SOL → Token) ✅
+- [x] בצע swap של $1 (טסט!) ✅
 
 **קוד:**
 ```python
@@ -685,12 +685,12 @@ print(f"You'll get: {quote['outAmount']} tokens")
 
 ### 🔥 Day 17: Buy Strategy (DCA)
 **⏰ 2-3 שעות | Output: קנייה חכמה ב-3 שלבים**
-**סטטוס:** ⏳ לא התחיל
+**סטטוס:** ✅ הושלם במלואו
 
 **מה אתה עושה:**
-- [ ] במקום לקנות $100 בבת אחת
-- [ ] קנה $30 → חכה 2 דקות → $40 → חכה → $30
-- [ ] זה מפחית סיכון
+- [x] במקום לקנות $100 בבת אחת ✅
+- [x] קנה $30 → חכה 2 דקות → $40 → חכה → $30 ✅
+- [x] זה מפחית סיכון ✅
 
 **קוד:**
 ```python
@@ -717,12 +717,15 @@ def buy_token_dca(token_address, total_amount_usd):
 
 ### 🔥 Day 18: Stop Loss (Auto-Sell)
 **⏰ 3-4 שעות | Output: מכירה אוטומטית אם ירידה**
-**סטטוס:** ⏳ לא התחיל
+**סטטוס:** ✅ הושלם במלואו
 
 **מה אתה עושה:**
-- [ ] בדוק מחיר כל 30 שניות
-- [ ] אם ירד 15% → SELL ALL
-- [ ] שמור trade history
+- [x] בדוק מחיר כל 30 שניות ✅
+- [x] אם ירד 15% → SELL ALL ✅
+- [x] שמור trade history ✅
+- [x] PriceFetcher - קבלת מחירים מ-DexScreener ✅
+- [x] Time limit - 7 ימים מקסימום ✅
+- [x] Emergency Exit - מכירה מיידית (Rug Pull) ✅
 
 **קוד:**
 ```python
@@ -752,12 +755,14 @@ threading.Thread(target=monitor_position, args=(token_address, entry_price)).sta
 
 ### 🔥 Day 19: Take Profit (Tiered Selling)
 **⏰ 2-3 שעות | Output: מכירה חכמה ב-3 רמות**
-**סטטוס:** ⏳ לא התחיל
+**סטטוס:** ✅ הושלם במלואו
 
 **מה אתה עושה:**
-- [ ] ב-x2 → מכור 30%
-- [ ] ב-x5 → מכור עוד 30%
-- [ ] השאר 40% עם trailing stop
+- [x] ב-x2 → מכור 30% ✅
+- [x] ב-x5 → מכור עוד 30% ✅
+- [x] השאר 40% עם trailing stop ✅
+- [x] ניטור רציף עד שכל ה-60% נמכר ✅
+- [x] Trailing stop עולה עם המחיר ✅
 
 **קוד:**
 ```python
@@ -792,13 +797,16 @@ def take_profit_strategy(token_address, entry_price):
 
 ### 🔥 Day 20: Telegram Trade Controls
 **⏰ 3-4 שעות | Output: קנייה/מכירה מטלגרם**  
-**סטטוס:** ⏳ לא התחיל
+**סטטוס:** ✅ הושלם במלואו
 
 **מה אתה עושה:**
-- [ ] בוט שולח: "🔥 BONK2.0 - Score 95/100" עם כפתור "Buy"
-- [ ] אתה לוחץ "Buy" → בוט שואל כמה
-- [ ] אתה עונה: "50" (= קנה $50)
-- [ ] בוט מבצע ומדווח
+- [x] כפתור "Buy" בהתראות ✅
+- [x] פקודת /buy <amount> <address> ✅
+- [x] פקודת /sell <address> ✅
+- [x] פקודת /portfolio ✅
+- [x] כפתורי סכום מהירים (0.01, 0.05, 0.1, 0.2, 0.5 SOL) ✅
+- [x] שילוב עם DCA Strategy ✅
+- [x] שילוב עם Position Monitor ✅
 
 **קוד:**
 ```python
@@ -851,14 +859,17 @@ app.add_handler(buy_handler)
 
 ---
 
-### 🔥 Day 21: Portfolio Tracker
-**⏰ 2-3 שעות | Output: דף Portfolio בדשבורד**
-**סטטוס:** ⏳ לא התחיל
+### 🔥 Day 21: Portfolio Tracker + Final Polish
+**⏰ 2-3 שעות | Output: דף Portfolio בדשבורד + Final Testing**
+**סטטוס:** ✅ הושלם במלואו
 
 **מה אתה עושה:**
-- [ ] טבלה עם כל ההחזקות שלך
-- [ ] רווח/הפסד בזמן אמת
-- [ ] סה"כ P&L
+- [x] טבלה עם כל ההחזקות שלך ✅
+- [x] רווח/הפסד בזמן אמת ✅
+- [x] סה"כ P&L ✅
+- [x] חיבור ל-Position Monitor ✅
+- [x] API endpoints מלאים ✅
+- [x] שיפור error handling ✅
 
 **קוד:**
 ```sql

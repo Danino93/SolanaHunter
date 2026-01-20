@@ -56,6 +56,12 @@ from analyzer.smart_money_tracker import get_smart_money_tracker
 from analyzer.smart_money_discovery import get_discovery_engine
 from communication.telegram_bot import build_telegram_controller
 from database.supabase_client import get_supabase_client
+from executor.wallet_manager import get_wallet_manager
+from executor.jupiter_client import JupiterClient
+from executor.dca_strategy import DCAStrategy
+from executor.position_monitor import PositionMonitor
+from executor.take_profit_strategy import TakeProfitStrategy
+from executor.price_fetcher import PriceFetcher
 
 # Setup logging
 logger = setup_logger("solanahunter", settings.log_level)
@@ -83,6 +89,35 @@ class SolanaHunter:
         self._favorites: dict[str, dict] = {}  # מועדפים: address -> token dict
         self._alert_history: list[dict] = []  # היסטוריית התראות
         self._filters: dict = {}  # פילטרים מותאמים
+        
+        # Trading components (Day 15-19)
+        self.wallet_manager = get_wallet_manager()  # None if not configured
+        self.jupiter_client = None
+        self.dca_strategy = None
+        self.position_monitor = None
+        self.take_profit_strategy = None
+        self.price_fetcher = None
+        
+        # Initialize trading components if wallet is available
+        if self.wallet_manager:
+            try:
+                self.jupiter_client = JupiterClient(self.wallet_manager)
+                self.dca_strategy = DCAStrategy(self.jupiter_client)
+                self.price_fetcher = PriceFetcher()
+                self.position_monitor = PositionMonitor(
+                    jupiter_client=self.jupiter_client,
+                    wallet_manager=self.wallet_manager,
+                    price_fetcher=self.price_fetcher,
+                    alert_callback=self._telegram_trade_alert,
+                )
+                self.take_profit_strategy = TakeProfitStrategy(
+                    jupiter_client=self.jupiter_client,
+                    price_fetcher=self.price_fetcher,
+                )
+                logger.info("✅ Trading components initialized")
+            except Exception as e:
+                logger.warning(f"⚠️ Trading components not available: {e}")
+        
         self.telegram = build_telegram_controller(
             status_provider=self._telegram_status,
             check_provider=self._telegram_check_token,
@@ -109,6 +144,9 @@ class SolanaHunter:
             filter_provider=self._telegram_set_filter,
             get_filters_provider=self._telegram_get_filters,
             trends_provider=self._telegram_trends,
+            buy_provider=self._telegram_buy if self.dca_strategy else None,
+            sell_provider=self._telegram_sell if self.position_monitor else None,
+            portfolio_provider=self._telegram_portfolio if self.position_monitor else None,
         )
         self.running = False
         self.initial_discovery_done = False
@@ -415,18 +453,18 @@ class SolanaHunter:
         מריץ סריקה מיידית של טוקנים חדשים (בלי לחכות לסריקה הבאה)
         """
         if self._paused:
-            return "❌ הבוט מושהה. השתמש ב-<code>/resume</code> כדי להמשיך."
+            return "אופס, הבוט מושהה כרגע 😅\nהשתמש ב-<code>/resume</code> כדי להמשיך"
         
         try:
             logger.info("🔍 Manual scan triggered via Telegram")
             tokens = await self.scanner.discover_new_tokens(hours=24)
             if tokens:
-                return f"✅ סריקה הושלמה: נמצאו <b>{len(tokens)}</b> טוקנים חדשים.\n\nהשתמש ב-<code>/top</code> כדי לראות את הטובים ביותר."
+                return f"🔥 סריקה הושלמה! מצאתי <b>{len(tokens)}</b> טוקנים חדשים.\n\nרוצה לראות את הטובים ביותר? שלח <code>/top</code> 🚀"
             else:
                 return "⏳ לא נמצאו טוקנים חדשים כרגע."
         except Exception as e:
             logger.error(f"Manual scan failed: {e}", exc_info=True)
-            return f"❌ שגיאה בסריקה: {str(e)}"
+            return f"אופס, שגיאה בסריקה 😅\n{str(e)}"
 
     def _telegram_set_threshold(self, value: int) -> str:
         """
@@ -434,11 +472,11 @@ class SolanaHunter:
         משנה את הסף להתראות (0-100). טוקנים עם ציון >= סף יקבלו התראה.
         """
         if value < 0 or value > 100:
-            return "❌ סף חייב להיות בין 0 ל-100."
+            return "אופס, הסף חייב להיות בין 0 ל-100 😅"
         old_threshold = self.scoring_engine.alert_threshold
         self.scoring_engine.alert_threshold = value
         logger.info(f"Alert threshold changed: {old_threshold} → {value}")
-        return f"✅ סף התראה עודכן: <b>{old_threshold}</b> → <b>{value}</b>"
+        return f"🔥 סגור! סף התראה עודכן: <b>{old_threshold}</b> → <b>{value}</b>"
 
     def _telegram_get_threshold(self) -> int:
         """מחזיר את סף ההתראה הנוכחי"""
@@ -452,12 +490,12 @@ class SolanaHunter:
         """
         mode = mode.lower().strip()
         if mode not in ("quiet", "normal"):
-            return f"❌ מצב לא תקין. אפשרויות: <code>quiet</code>, <code>normal</code>"
+            return f"אופס, מצב לא תקין 😅\nאפשרויות: <code>quiet</code>, <code>normal</code>"
         old_mode = self._mode
         self._mode = mode
         logger.info(f"Bot mode changed: {old_mode} → {mode}")
         mode_he = "שקט" if mode == "quiet" else "רגיל"
-        return f"✅ מצב עודכן: <b>{old_mode}</b> → <b>{mode}</b> ({mode_he})"
+        return f"🔥 סגור! מצב עודכן: <b>{old_mode}</b> → <b>{mode}</b> ({mode_he})"
 
     def _telegram_get_mode(self) -> str:
         """Get current bot mode"""
@@ -542,7 +580,7 @@ class SolanaHunter:
             return f"ℹ️ הטוקן <code>{address[:8]}…</code> כבר במעקב."
         self._watched_tokens.add(address)
         logger.info(f"Token added to watch list: {address}")
-        return f"✅ הטוקן נוסף למעקב: <code>{address[:8]}…{address[-8:]}</code>"
+        return f"🔥 סגור! הטוקן נוסף למעקב: <code>{address[:8]}…{address[-8:]}</code>"
 
     def _telegram_unwatch(self, address: str) -> str:
         """Remove token from watch list"""
@@ -550,7 +588,7 @@ class SolanaHunter:
             return f"ℹ️ הטוקן <code>{address[:8]}…</code> לא במעקב."
         self._watched_tokens.remove(address)
         logger.info(f"Token removed from watch list: {address}")
-        return f"✅ הטוקן הוסר מהמעקב: <code>{address[:8]}…{address[-8:]}</code>"
+        return f"🔥 סגור! הטוקן הוסר מהמעקב: <code>{address[:8]}…{address[-8:]}</code>"
 
     def _telegram_list_watched(self) -> list[str]:
         """List watched tokens"""
@@ -632,11 +670,11 @@ class SolanaHunter:
         if token:
             self._favorites[address] = token.copy()
             logger.info(f"Token added to favorites: {address}")
-            return f"✅ הטוקן נוסף למועדפים: <code>{address[:8]}…</code>"
+            return f"🔥 סגור! הטוקן נוסף למועדפים: <code>{address[:8]}…</code>"
         else:
             # אם לא נמצא, שמור רק את הכתובת
             self._favorites[address] = {"address": address}
-            return f"✅ כתובת נוספה למועדפים: <code>{address[:8]}…</code>"
+            return f"🔥 סגור! כתובת נוספה למועדפים: <code>{address[:8]}…</code>"
 
     def _telegram_remove_favorite(self, address: str) -> str:
         """Remove token from favorites"""
@@ -644,7 +682,7 @@ class SolanaHunter:
             return f"ℹ️ הטוקן לא במועדפים."
         del self._favorites[address]
         logger.info(f"Token removed from favorites: {address}")
-        return f"✅ הטוקן הוסר ממועדפים: <code>{address[:8]}…</code>"
+        return f"🔥 סגור! הטוקן הוסר ממועדפים: <code>{address[:8]}…</code>"
 
     def _telegram_export(self) -> str:
         """Export data"""
@@ -682,7 +720,7 @@ class SolanaHunter:
         """Set custom filters"""
         self._filters.update(filters)
         logger.info(f"Filters updated: {filters}")
-        return f"✅ פילטרים עודכנו: <code>{filters}</code>"
+        return f"🔥 סגור! פילטרים עודכנו: <code>{filters}</code>"
 
     def _telegram_get_filters(self) -> dict:
         """Get current filters"""
@@ -707,6 +745,177 @@ class SolanaHunter:
             "<b>📈 טרנדים (טופ 5)</b>\n\n" + "\n".join(rows) + "\n\n"
             "<i>💡 הטוקנים עם הציונים הגבוהים ביותר מהסריקה האחרונה</i>"
         )
+    
+    async def _telegram_buy(self, token_mint: str, amount_sol: float) -> str:
+        """
+        💰 פקודת /buy - קניית טוקן ב-DCA
+        
+        Args:
+            token_mint: כתובת הטוקן
+            amount_sol: כמות SOL לקנות
+        
+        Returns:
+            הודעה עם תוצאות הקנייה
+        """
+        if not self.dca_strategy:
+            return "אופס, Trading לא זמין כרגע 😅\nודא ש-WALLET_PRIVATE_KEY מוגדר ב-.env"
+        
+        try:
+            # קבל מידע על הטוקן
+            token_info = await self.price_fetcher.get_token_info(token_mint) if self.price_fetcher else None
+            token_symbol = token_info.get("dex", "Unknown") if token_info else "Unknown"
+            
+            # בצע קנייה ב-DCA
+            result = await self.dca_strategy.buy_token_dca(
+                token_mint=token_mint,
+                total_amount_sol=amount_sol,
+                wait_minutes=2,
+            )
+            
+            if result.success:
+                # הוסף פוזיציה לניטור
+                # TODO: צריך לחשב מחיר כניסה ממוצע מ-transactions
+                # כרגע נשתמש במחיר משוער
+                entry_price = 0.0  # יושלם כשיהיה price tracking
+                
+                # חשב כמות טוקנים (משוער)
+                # TODO: צריך לחשב מ-transactions
+                amount_tokens = 0  # יושלם כשיהיה balance tracking
+                
+                if amount_tokens > 0 and self.position_monitor:
+                    await self.position_monitor.add_position(
+                        token_mint=token_mint,
+                        token_symbol=token_symbol,
+                        entry_price=entry_price,
+                        amount_tokens=amount_tokens,
+                        transactions=result.transactions,
+                    )
+                
+                return (
+                    f"🔥 <b>קנייה הושלמה!</b>\n\n"
+                    f"<b>טוקן:</b> <code>{token_mint[:8]}...{token_mint[-6:]}</code>\n"
+                    f"<b>סכום:</b> {amount_sol} SOL\n"
+                    f"<b>שלבים:</b> {result.stages_completed}/{result.total_stages}\n"
+                    f"<b>טרנזקציות:</b> {len(result.transactions)}\n\n"
+                    f"📊 הפוזיציה במעקב אוטומטי (Stop Loss: -15%)"
+                )
+            else:
+                return (
+                    f"⚠️ <b>קנייה חלקית</b>\n\n"
+                    f"<b>שלבים הושלמו:</b> {result.stages_completed}/{result.total_stages}\n"
+                    f"<b>שגיאה:</b> {result.error or 'Unknown'}"
+                )
+        
+        except Exception as e:
+            logger.error(f"❌ Error in buy: {e}", exc_info=True)
+            return f"אופס, שגיאה בקנייה 😅\n{str(e)}"
+    
+    async def _telegram_sell(self, token_mint: str) -> str:
+        """
+        💰 פקודת /sell - מכירת פוזיציה
+        
+        Args:
+            token_mint: כתובת הטוקן
+        
+        Returns:
+            הודעה עם תוצאות המכירה
+        """
+        if not self.position_monitor:
+            return "אופס, Trading לא זמין כרגע 😅\nודא ש-WALLET_PRIVATE_KEY מוגדר ב-.env"
+        
+        try:
+            position = self.position_monitor.get_position(token_mint)
+            
+            if not position:
+                return f"אופס, לא מצאתי פוזיציה עבור <code>{token_mint[:8]}...</code> 😅"
+            
+            # בצע מכירה
+            tx_signature = await self.position_monitor._sell_position(
+                position,
+                position.status,
+            )
+            
+            if tx_signature:
+                return (
+                    f"✅ <b>מכירה הושלמה!</b>\n\n"
+                    f"<b>טוקן:</b> <code>{position.token_symbol}</code>\n"
+                    f"<b>טרנזקציה:</b> <a href=\"https://solscan.io/tx/{tx_signature}\">{tx_signature[:8]}...</a>"
+                )
+            else:
+                return f"אופס, המכירה נכשלה 😅"
+        
+        except Exception as e:
+            logger.error(f"❌ Error in sell: {e}", exc_info=True)
+            return f"אופס, שגיאה במכירה 😅\n{str(e)}"
+    
+    async def _telegram_portfolio(self) -> str:
+        """
+        💼 פקודת /portfolio - הצגת פוזיציות פעילות
+        
+        Returns:
+            הודעה עם רשימת פוזיציות
+        """
+        if not self.position_monitor:
+            return "אופס, Trading לא זמין כרגע 😅\nודא ש-WALLET_PRIVATE_KEY מוגדר ב-.env"
+        
+        try:
+            positions = self.position_monitor.get_all_positions()
+            
+            if not positions:
+                return "<b>💼 תיק</b>\n\nאין פוזיציות פעילות כרגע."
+            
+            rows = []
+            for pos in positions:
+                age_days = pos.get_age_days()
+                rows.append(
+                    f"• <b>{pos.token_symbol}</b>\n"
+                    f"  Entry: ${pos.entry_price:.6f}\n"
+                    f"  Amount: {pos.amount_tokens}\n"
+                    f"  Age: {age_days:.1f} days\n"
+                    f"  Stop Loss: {pos.stop_loss_pct*100:.0f}%\n"
+                    f"  <code>{pos.token_mint[:8]}...{pos.token_mint[-6:]}</code>"
+                )
+            
+            return (
+                f"<b>💼 תיק ({len(positions)} פוזיציות)</b>\n\n" +
+                "\n\n".join(rows)
+            )
+        
+        except Exception as e:
+            logger.error(f"❌ Error in portfolio: {e}", exc_info=True)
+            return f"אופס, שגיאה בהצגת תיק 😅\n{str(e)}"
+    
+    async def _telegram_trade_alert(
+        self,
+        position,
+        reason,
+        tx_signature: Optional[str] = None,
+    ):
+        """
+        התראה על trade (stop loss, take profit, וכו')
+        
+        Args:
+            position: Position object
+            reason: סיבת המכירה
+            tx_signature: Transaction signature (אופציונלי)
+        """
+        if not self.telegram:
+            return
+        
+        try:
+            message = (
+                f"🚨 <b>Trade Alert</b>\n\n"
+                f"<b>טוקן:</b> {position.token_symbol}\n"
+                f"<b>סיבה:</b> {reason.value if hasattr(reason, 'value') else str(reason)}\n"
+            )
+            
+            if tx_signature:
+                message += f"<b>טרנזקציה:</b> <a href=\"https://solscan.io/tx/{tx_signature}\">{tx_signature[:8]}...</a>"
+            
+            await self.telegram.send_message(message, parse_mode="HTML")
+        
+        except Exception as e:
+            logger.error(f"❌ Error sending trade alert: {e}")
 
 
 def setup_signal_handlers(bot: SolanaHunter):

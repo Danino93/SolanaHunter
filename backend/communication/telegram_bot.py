@@ -104,6 +104,9 @@ ExportProvider = Callable[[], str]
 FilterProvider = Callable[[dict], str]
 GetFiltersProvider = Callable[[], dict]
 TrendsProvider = Callable[[], str]
+BuyProvider = Callable[[str, float], Awaitable[str]]  # token_mint, amount_sol
+SellProvider = Callable[[str], Awaitable[str]]  # token_mint
+PortfolioProvider = Callable[[], Awaitable[str]]  # portfolio status
 
 
 @dataclass
@@ -141,6 +144,9 @@ class TelegramBotController:
         filter_provider: Optional[FilterProvider] = None,
         get_filters_provider: Optional[GetFiltersProvider] = None,
         trends_provider: Optional[TrendsProvider] = None,
+        buy_provider: Optional[BuyProvider] = None,
+        sell_provider: Optional[SellProvider] = None,
+        portfolio_provider: Optional[PortfolioProvider] = None,
     ):
         self.config = config
         self._status_provider = status_provider
@@ -168,6 +174,9 @@ class TelegramBotController:
         self._filter_provider = filter_provider
         self._get_filters_provider = get_filters_provider
         self._trends_provider = trends_provider
+        self._buy_provider = buy_provider
+        self._sell_provider = sell_provider
+        self._portfolio_provider = portfolio_provider
 
         self._client: Optional[httpx.AsyncClient] = None
         self._task: Optional[asyncio.Task] = None
@@ -316,31 +325,39 @@ class TelegramBotController:
         strengths_text = "\n".join(strengths) if strengths else "⚠️ בדוק בזהירות"
 
         text = (
-            "🚨 <b>HIGH SCORE TOKEN DETECTED!</b>\n\n"
-            f"<b>Token:</b> <code>{symbol_e}</code>\n"
-            f"<b>Score:</b> <b>{final_score}/100</b> ({self._e(str(grade))})\n"
-            f"<b>Risk Level:</b> {risk_level}\n\n"
-            f"<b>📊 Breakdown:</b>\n"
-            f"• Safety: {safety_score}/100\n"
-            f"• Holders: {holders}\n"
+            "🚨 <b>וואו! מצאתי משהו שווה!</b>\n\n"
+            f"<b>טוקן:</b> <code>{symbol_e}</code>\n"
+            f"<b>ציון:</b> <b>{final_score}/100</b> ({self._e(str(grade))}) 🔥\n"
+            f"<b>רמת סיכון:</b> {risk_level}\n\n"
+            f"<b>📊 הפרטים:</b>\n"
+            f"• בטיחות: {safety_score}/100\n"
+            f"• מחזיקים: {holders}\n"
             f"• Smart Money: {smart_money}\n"
             f"• Top 10%: {top_10_pct:.1f}%\n\n"
-            f"<b>✅ Strengths:</b>\n{strengths_text}\n\n"
-            f"<b>Address:</b>\n<code>{addr_e}</code>\n\n"
+            f"<b>✅ מה טוב בו:</b>\n{strengths_text}\n\n"
+            f"<b>כתובת:</b>\n<code>{addr_e}</code>\n\n"
             f"<a href=\"{self._e(dex_url)}\">📊 DexScreener</a> | "
             f"<a href=\"{self._e(solscan_url)}\">🔍 Solscan</a>"
         )
 
+        # כפתורים - כולל Buy אם יש buy_provider
+        inline_keyboard = [
+            [
+                {"text": "📊 More Info", "callback_data": f"info:{address}"},
+                {"text": "🔍 Check Again", "callback_data": f"check:{address}"},
+            ],
+        ]
+        
+        # הוסף כפתור Buy אם יש buy_provider
+        if self._buy_provider:
+            inline_keyboard[0].insert(0, {"text": "💰 Buy", "callback_data": f"buy:{address}"})
+        
+        inline_keyboard.append([
+            {"text": "❌ Ignore", "callback_data": "ignore"},
+        ])
+        
         reply_markup = {
-            "inline_keyboard": [
-                [
-                    {"text": "📊 More Info", "callback_data": f"info:{address}"},
-                    {"text": "🔍 Check Again", "callback_data": f"check:{address}"},
-                ],
-                [
-                    {"text": "❌ Ignore", "callback_data": "ignore"},
-                ]
-            ]
+            "inline_keyboard": inline_keyboard
         }
 
         await self.send_message(text, parse_mode="HTML", reply_markup=reply_markup)
@@ -425,46 +442,46 @@ class TelegramBotController:
         }
 
         msg = (
-            "<b>🤖 SolanaHunter — תפריט ראשי</b>\n\n"
-            "<b>📋 פקודות מהירות:</b>\n"
-            "• <b>סטטוס</b> — מצב הבוט והסריקה\n"
-            "• <b>טופ</b> — הטוקנים הכי טובים\n"
-            "• <b>סטטיסטיקות</b> — נתונים וסיכום\n"
+            "<b>🤖 מה קורה אחי!</b>\n\n"
+            "<b>🔥 פקודות מהירות:</b>\n"
+            "• <b>סטטוס</b> — איך אני עובד\n"
+            "• <b>טופ</b> — הטוקנים הכי שווים\n"
+            "• <b>סטטיסטיקות</b> — כל הנתונים\n"
             "• <b>בדיקה</b> — שלח: <code>בדוק &lt;כתובת טוקן&gt;</code>\n"
-            "• <b>התראות</b> — מצב התראות\n"
-            "• <b>הגדרות</b> — סף התראה / מצב עבודה\n"
-            "• <b>סרוק עכשיו</b> — מריץ סריקה מיידית\n\n"
-            f"<b>⚙️ הגדרות נוכחיות:</b>\n"
+            "• <b>התראות</b> — מה קורה עם ההתראות\n"
+            "• <b>הגדרות</b> — תכונות וכל זה\n"
+            "• <b>סרוק עכשיו</b> — בוא נחפש משהו חדש\n\n"
+            f"<b>⚙️ איך אני עובד כרגע:</b>\n"
             f"• מצב: <code>{self._e(mode)}</code>\n"
             f"• סף התראה: <code>{thr}</code>\n\n"
             "<b>🔧 פקודות מתקדמות:</b>\n"
-            "• <code>/status</code> — מצב\n"
-            "• <code>/check &lt;address&gt;</code> — בדיקת טוקן\n"
-            "• <code>/top [N]</code> — טופ N טוקנים\n"
-            "• <code>/scan</code> — סריקה מיידית\n"
-            "• <code>/threshold [N]</code> — שינוי סף התראה\n"
+            "• <code>/status</code> — מה המצב\n"
+            "• <code>/check &lt;address&gt;</code> — בוא נבדוק טוקן\n"
+            "• <code>/top [N]</code> — הטופ N\n"
+            "• <code>/scan</code> — בוא נסרוק\n"
+            "• <code>/threshold [N]</code> — שינוי סף\n"
             "• <code>/mode [quiet/normal]</code> — שינוי מצב\n"
-            "• <code>/stop</code> / <code>/resume</code> — עצירה/המשך\n"
+            "• <code>/stop</code> / <code>/resume</code> — עצור/המשך\n"
             "• <code>/stats</code> — סטטיסטיקות\n"
-            "• <code>/mute [זמן]</code> / <code>/unmute</code> — השתקה\n\n"
+            "• <code>/mute [זמן]</code> / <code>/unmute</code> — השתק/הפעל\n\n"
             "<b>📜 היסטוריה וחיפוש:</b>\n"
             "• <code>/lastalert</code> — התראה אחרונה\n"
-            "• <code>/history [N]</code> — היסטוריית התראות\n"
-            "• <code>/search &lt;symbol&gt;</code> — חיפוש לפי סימבול\n\n"
+            "• <code>/history [N]</code> — מה היה\n"
+            "• <code>/search &lt;symbol&gt;</code> — בוא נחפש\n\n"
             "<b>👁️ מעקב ומועדפים:</b>\n"
-            "• <code>/watch &lt;address&gt;</code> — מעקב אחרי טוקן\n"
-            "• <code>/watched</code> — רשימת טוקנים במעקב\n"
-            "• <code>/unwatch &lt;address&gt;</code> — הסרת מעקב\n"
-            "• <code>/favorites</code> — מועדפים\n"
-            "• <code>/fav &lt;address&gt;</code> — הוספה למועדפים\n"
-            "• <code>/unfav &lt;address&gt;</code> — הסרה ממועדפים\n\n"
+            "• <code>/watch &lt;address&gt;</code> — בוא נעקוב\n"
+            "• <code>/watched</code> — מה אנחנו עוקבים\n"
+            "• <code>/unwatch &lt;address&gt;</code> — תפסיק לעקוב\n"
+            "• <code>/favorites</code> — המועדפים שלך\n"
+            "• <code>/fav &lt;address&gt;</code> — הוסף למועדפים\n"
+            "• <code>/unfav &lt;address&gt;</code> — הסר ממועדפים\n\n"
             "<b>📊 ניתוח והשוואה:</b>\n"
-            "• <code>/compare &lt;addr1&gt; &lt;addr2&gt;</code> — השוואה\n"
-            "• <code>/trends</code> — טרנדים\n"
-            "• <code>/filter</code> — הגדרת פילטרים\n"
-            "• <code>/export</code> — ייצוא נתונים\n\n"
+            "• <code>/compare &lt;addr1&gt; &lt;addr2&gt;</code> — בוא נשווה\n"
+            "• <code>/trends</code> — מה הטרנדים\n"
+            "• <code>/filter</code> — הגדר פילטרים\n"
+            "• <code>/export</code> — ייצא נתונים\n\n"
             "• <code>/help</code> — עזרה\n\n"
-            "<i>💡 טיפ: אתה יכול לכתוב בעברית או באנגלית, הבוט יבין!</i>"
+            "<i>💡 טיפ: כתוב בעברית או באנגלית, אני מבין הכל!</i>"
         )
 
         await self.send_message(msg, parse_mode="HTML", reply_markup=keyboard)
@@ -553,7 +570,7 @@ class TelegramBotController:
                     await self.edit_message_text(
                         chat_id=chat_id,
                         message_id=message_id,
-                        text=f"❌ הבדיקה נכשלה: {self._e(str(e))}",
+                        text=f"אופס, הבדיקה נכשלה 😅\n{self._e(str(e))}",
                         parse_mode="HTML"
                     )
                 return
@@ -589,7 +606,7 @@ class TelegramBotController:
                 status = await self._status_provider()  # Now async for wallet balance
             except Exception as e:
                 status = f"Status unavailable: {e}"
-            await self.send_message(f"<b>📊 סטטוס</b>\n\n{self._e(status)}", parse_mode="HTML")
+            await self.send_message(f"<b>📊 מה המצב:</b>\n\n{self._e(status)}", parse_mode="HTML")
             return
 
         if text in ("/alerts", "alerts", "התראות", "🔔 התראות"):
@@ -597,10 +614,10 @@ class TelegramBotController:
             until = self._mute_until.isoformat() if self._mute_until else "-"
             muted_he = "כן" if self.is_muted else "לא"
             await self.send_message(
-                "<b>🔔 התראות</b>\n\n"
+                "<b>🔔 מה קורה עם ההתראות:</b>\n\n"
                 f"מושתק: <b>{muted_he}</b>\n"
                 f"עד: <code>{self._e(until)}</code>\n"
-                f"נשלחו מאז ההפעלה: <b>{self._alerts_sent_count}</b>",
+                f"נשלחו מאז שהתחלתי: <b>{self._alerts_sent_count}</b>",
                 parse_mode="HTML",
             )
             return
@@ -608,22 +625,22 @@ class TelegramBotController:
         if text.startswith("/mute") or normalized.startswith("mute ") or normalized.startswith("השתק "):
             parts = text.split(maxsplit=1)
             if len(parts) < 2:
-                await self.send_message("שימוש: <code>/mute 30m</code> או <code>השתק 30ד</code>", parse_mode="HTML")
+                await self.send_message("איך להשתמש: <code>/mute 30m</code> או <code>השתק 30ד</code>", parse_mode="HTML")
                 return
             dur = self._parse_duration(parts[1].strip())
             if not dur:
-                await self.send_message("זמן לא תקין. דוגמאות: <code>10ד</code>, <code>2ש</code>, <code>1י</code>, <code>30m</code>", parse_mode="HTML")
+                await self.send_message("אופס, זמן לא תקין 😅\nדוגמאות: <code>10ד</code>, <code>2ש</code>, <code>1י</code>, <code>30m</code>", parse_mode="HTML")
                 return
             self.mute_for(dur)
             await self.send_message(
-                f"🔕 הושתק ל-<b>{self._e(parts[1])}</b>.",
+                f"🔕 סגור, הושתקתי ל-<b>{self._e(parts[1])}</b>. לא אציק לך 😊",
                 parse_mode="HTML",
             )
             return
 
         if text in ("/unmute", "unmute", "בטל השתקה", "הפעל התראות"):
             self.unmute()
-            await self.send_message("🔔 ההשתקה בוטלה. התראות פעילות.", parse_mode="HTML")
+            await self.send_message("🔔 סגור, חזרתי! התראות שוב פעילות 🚀", parse_mode="HTML")
             return
 
         if text in ("/top", "top", "טופ", "🏆 טופ"):
@@ -653,15 +670,16 @@ class TelegramBotController:
         if text.startswith("/check") or normalized.startswith("check ") or normalized.startswith("בדוק "):
             parts = text.split(maxsplit=1)
             if len(parts) < 2:
-                await self.send_message("שימוש: <code>/check &lt;token_address&gt;</code> או <code>בדוק &lt;כתובת&gt;</code>", parse_mode="HTML")
+                await self.send_message("איך להשתמש: <code>/check &lt;token_address&gt;</code> או <code>בדוק &lt;כתובת&gt;</code>", parse_mode="HTML")
                 return
             token_address = parts[1].strip()
             
             # בדיקת תקינות כתובת בסיסית (Solana address הוא 32-44 תווים)
             if len(token_address) < 32 or len(token_address) > 44:
                 await self.send_message(
-                    f"❌ כתובת לא תקינה: <code>{self._e(token_address[:20])}…</code>\n"
-                    "כתובת Solana חייבת להיות 32-44 תווים.",
+                    f"אופס, הכתובת לא נראית תקינה 😅\n"
+                    f"<code>{self._e(token_address[:20])}…</code>\n"
+                    "Solana address צריך להיות 32-44 תווים",
                     parse_mode="HTML"
                 )
                 return
@@ -671,27 +689,27 @@ class TelegramBotController:
                 result = await self._check_provider(token_address)
             except Exception as e:
                 logger.error(f"Token check failed: {e}", exc_info=True)
-                result = f"❌ הבדיקה נכשלה: {self._e(str(e))}"
+                result = f"אופס, הבדיקה נכשלה 😅\n{self._e(str(e))}"
             await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
             return
 
         # /scan or "סרוק" / "סרוק עכשיו"
         if text in ("/scan", "scan", "סרוק", "סריקה", "▶️ סרוק עכשיו", "סרוק עכשיו"):
             if not self._scan_now_provider:
-                await self.send_message("❌ סריקה מיידית לא זמינה כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, סריקה מיידית לא זמינה כרגע 😅", parse_mode="HTML")
                 return
-            await self.send_message("⏳ מריץ סריקה עכשיו…", parse_mode="HTML")
+            await self.send_message("⏳ בוא נסרוק! זה יכול לקחת רגע...", parse_mode="HTML")
             try:
                 result = await self._scan_now_provider()
             except Exception as e:
-                result = f"❌ סריקה נכשלה: {self._e(str(e))}"
+                result = f"אופס, הסריקה נכשלה 😅\n{self._e(str(e))}"
             await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
             return
 
         # /threshold or "סף" / "הגדרות"
         if text.startswith("/threshold") or normalized.startswith("threshold ") or normalized.startswith("סף "):
             if not self._set_threshold_provider or not self._get_threshold_provider:
-                await self.send_message("❌ שינוי סף התראה לא זמין כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, שינוי סף התראה לא זמין כרגע 😅", parse_mode="HTML")
                 return
             parts = text.split()
             if len(parts) == 1:
@@ -704,10 +722,10 @@ class TelegramBotController:
             try:
                 val = int(parts[1])
                 if val < 0 or val > 100:
-                    await self.send_message("❌ סף חייב להיות בין 0 ל-100.", parse_mode="HTML")
+                    await self.send_message("אופס, הסף חייב להיות בין 0 ל-100 😅", parse_mode="HTML")
                     return
             except Exception:
-                await self.send_message("❌ ערך לא תקין. דוגמה: <code>/threshold 90</code>", parse_mode="HTML")
+                await self.send_message("אופס, ערך לא תקין 😅\nדוגמה: <code>/threshold 90</code>", parse_mode="HTML")
                 return
             await self.send_message(self._set_threshold_provider(val), parse_mode="HTML")
             return
@@ -715,7 +733,7 @@ class TelegramBotController:
         # /mode or "מצב"
         if text.startswith("/mode") or normalized.startswith("mode ") or normalized.startswith("מצב "):
             if not self._set_mode_provider or not self._get_mode_provider:
-                await self.send_message("❌ שינוי מצב לא זמין כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, שינוי מצב לא זמין כרגע 😅", parse_mode="HTML")
                 return
             parts = text.split()
             if len(parts) == 1:
@@ -732,7 +750,7 @@ class TelegramBotController:
         # /stop or "עצור"
         if text in ("/stop", "stop", "עצור", "עצור בוט"):
             if not self._pause_provider:
-                await self.send_message("❌ עצירה לא זמינה כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, עצירה לא זמינה כרגע 😅", parse_mode="HTML")
                 return
             await self.send_message(self._pause_provider(), parse_mode="HTML")
             return
@@ -740,7 +758,7 @@ class TelegramBotController:
         # /resume or "המשך"
         if text in ("/resume", "resume", "המשך", "המשך בוט"):
             if not self._resume_provider:
-                await self.send_message("❌ המשך לא זמין כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, המשך לא זמין כרגע 😅", parse_mode="HTML")
                 return
             await self.send_message(self._resume_provider(), parse_mode="HTML")
             return
@@ -748,12 +766,12 @@ class TelegramBotController:
         # /stats or "סטטיסטיקות"
         if text in ("/stats", "stats", "סטטיסטיקות", "📈 סטטיסטיקות"):
             if not self._stats_provider:
-                await self.send_message("❌ סטטיסטיקות לא זמינות כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, סטטיסטיקות לא זמינות כרגע 😅", parse_mode="HTML")
                 return
             try:
                 stats = self._stats_provider()
             except Exception as e:
-                stats = f"❌ שגיאה: {self._e(str(e))}"
+                stats = f"אופס, שגיאה: {self._e(str(e))} 😅"
             await self.send_message(f"<b>📈 סטטיסטיקות</b>\n\n{stats}", parse_mode="HTML")
             return
 
@@ -880,11 +898,11 @@ class TelegramBotController:
                             disable_web_page_preview=True
                         )
                     else:
-                        await self.send_message(f"❌ לא נמצאו טוקנים עם סימבול <code>{self._e(symbol)}</code>", parse_mode="HTML")
+                        await self.send_message(f"אופס, לא מצאתי טוקנים עם סימבול <code>{self._e(symbol)}</code> 😅", parse_mode="HTML")
                 except Exception as e:
-                    await self.send_message(f"❌ שגיאה בחיפוש: {self._e(str(e))}", parse_mode="HTML")
+                    await self.send_message(f"אופס, שגיאה בחיפוש: {self._e(str(e))} 😅", parse_mode="HTML")
             else:
-                await self.send_message("❌ חיפוש לא זמין כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, חיפוש לא זמין כרגע 😅", parse_mode="HTML")
             return
 
         # /watch <address> - מעקב אחרי טוקן
@@ -897,14 +915,14 @@ class TelegramBotController:
             addr = parts[1].strip()
             # בדיקת תקינות כתובת
             if len(addr) < 32 or len(addr) > 44:
-                await self.send_message("❌ כתובת לא תקינה. כתובת Solana חייבת להיות 32-44 תווים.", parse_mode="HTML")
+                await self.send_message("אופס, כתובת לא תקינה 😅\nכתובת Solana חייבת להיות 32-44 תווים", parse_mode="HTML")
                 return
             
             if self._watch_provider:
                 result = self._watch_provider(addr)
                 await self.send_message(result, parse_mode="HTML")
             else:
-                await self.send_message("❌ מעקב לא זמין כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, מעקב לא זמין כרגע 😅", parse_mode="HTML")
             return
 
         # /unwatch <address> - הסרת מעקב
@@ -919,7 +937,7 @@ class TelegramBotController:
                 result = self._unwatch_provider(addr)
                 await self.send_message(result, parse_mode="HTML")
             else:
-                await self.send_message("❌ הסרת מעקב לא זמינה כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, הסרת מעקב לא זמינה כרגע 😅", parse_mode="HTML")
             return
 
         # /watched - רשימת טוקנים במעקב
@@ -935,7 +953,7 @@ class TelegramBotController:
                 else:
                     await self.send_message("ℹ️ אין טוקנים במעקב כרגע.", parse_mode="HTML")
             else:
-                await self.send_message("❌ רשימת מעקב לא זמינה כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, רשימת מעקב לא זמינה כרגע 😅", parse_mode="HTML")
             return
 
         # /compare <addr1> <addr2> - השוואה בין טוקנים
@@ -948,7 +966,7 @@ class TelegramBotController:
             addr1, addr2 = parts[1].strip(), parts[2].strip()
             # בדיקת תקינות כתובות
             if len(addr1) < 32 or len(addr1) > 44 or len(addr2) < 32 or len(addr2) > 44:
-                await self.send_message("❌ אחת מהכתובות לא תקינה. כתובת Solana חייבת להיות 32-44 תווים.", parse_mode="HTML")
+                await self.send_message("אופס, אחת מהכתובות לא תקינה 😅\nכתובת Solana חייבת להיות 32-44 תווים", parse_mode="HTML")
                 return
             
             await self.send_message("⚖️ משווה טוקנים… רגע.", parse_mode="HTML")
@@ -959,9 +977,9 @@ class TelegramBotController:
                     await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
                 except Exception as e:
                     logger.error(f"Compare failed: {e}", exc_info=True)
-                    await self.send_message(f"❌ שגיאה בהשוואה: {self._e(str(e))}", parse_mode="HTML")
+                    await self.send_message(f"אופס, שגיאה בהשוואה: {self._e(str(e))} 😅", parse_mode="HTML")
             else:
-                await self.send_message("❌ השוואה לא זמינה כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, השוואה לא זמינה כרגע 😅", parse_mode="HTML")
             return
 
         # /favorites - רשימת מועדפים
@@ -983,7 +1001,7 @@ class TelegramBotController:
                 else:
                     await self.send_message("ℹ️ אין מועדפים כרגע.", parse_mode="HTML")
             else:
-                await self.send_message("❌ מועדפים לא זמינים כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, מועדפים לא זמינים כרגע 😅", parse_mode="HTML")
             return
 
         # /fav <address> - הוספה למועדפים
@@ -998,7 +1016,7 @@ class TelegramBotController:
                 result = self._add_favorite_provider(addr)
                 await self.send_message(result, parse_mode="HTML")
             else:
-                await self.send_message("❌ הוספה למועדפים לא זמינה כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, הוספה למועדפים לא זמינה כרגע 😅", parse_mode="HTML")
             return
 
         # /unfav <address> - הסרה ממועדפים
@@ -1013,7 +1031,7 @@ class TelegramBotController:
                 result = self._remove_favorite_provider(addr)
                 await self.send_message(result, parse_mode="HTML")
             else:
-                await self.send_message("❌ הסרה ממועדפים לא זמינה כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, הסרה ממועדפים לא זמינה כרגע 😅", parse_mode="HTML")
             return
 
         # /export - ייצוא נתונים
@@ -1023,15 +1041,15 @@ class TelegramBotController:
                     result = self._export_provider()
                     await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
                 except Exception as e:
-                    await self.send_message(f"❌ שגיאה בייצוא: {self._e(str(e))}", parse_mode="HTML")
+                    await self.send_message(f"אופס, שגיאה בייצוא: {self._e(str(e))} 😅", parse_mode="HTML")
             else:
-                await self.send_message("❌ ייצוא לא זמין כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, ייצוא לא זמין כרגע 😅", parse_mode="HTML")
             return
 
         # /filter - הגדרת פילטרים
         if text.startswith("/filter") or normalized.startswith("filter ") or normalized.startswith("פילטר "):
             if not self._filter_provider or not self._get_filters_provider:
-                await self.send_message("❌ פילטרים לא זמינים כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, פילטרים לא זמינים כרגע 😅", parse_mode="HTML")
                 return
             
             parts = text.split(maxsplit=1)
@@ -1069,7 +1087,7 @@ class TelegramBotController:
                 result = self._filter_provider(filters_dict)
                 await self.send_message(result, parse_mode="HTML")
             except Exception as e:
-                await self.send_message(f"❌ שגיאה בהגדרת פילטרים: {self._e(str(e))}", parse_mode="HTML")
+                await self.send_message(f"אופס, שגיאה בהגדרת פילטרים: {self._e(str(e))} 😅", parse_mode="HTML")
             return
 
         # /trends - טרנדים
@@ -1079,11 +1097,101 @@ class TelegramBotController:
                     result = self._trends_provider()
                     await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
                 except Exception as e:
-                    await self.send_message(f"❌ שגיאה בטרנדים: {self._e(str(e))}", parse_mode="HTML")
+                    await self.send_message(f"אופס, שגיאה בטרנדים: {self._e(str(e))} 😅", parse_mode="HTML")
             else:
-                await self.send_message("❌ טרנדים לא זמינים כרגע.", parse_mode="HTML")
+                await self.send_message("אופס, טרנדים לא זמינים כרגע 😅", parse_mode="HTML")
             return
 
+        # פקודות מסחר
+        # /buy או "קנה" - קנייה
+        if text.startswith("/buy") or normalized.startswith("קנה ") or normalized.startswith("buy "):
+            parts = text.split(maxsplit=2)
+            if len(parts) >= 3:
+                # /buy <amount> <address>
+                try:
+                    amount_sol = float(parts[1])
+                    token_address = parts[2]
+                    if self._buy_provider:
+                        await self.send_message(
+                            f"🔄 קונה {amount_sol} SOL של <code>{self._e(token_address)}</code>...",
+                            parse_mode="HTML"
+                        )
+                        try:
+                            result = await self._buy_provider(token_address, amount_sol)
+                            await self.send_message(result, parse_mode="HTML")
+                        except Exception as e:
+                            await self.send_message(
+                                f"אופס, הקנייה נכשלה 😅\n{self._e(str(e))}",
+                                parse_mode="HTML"
+                            )
+                    else:
+                        await self.send_message("אופס, Buy לא זמין כרגע 😅", parse_mode="HTML")
+                except (ValueError, IndexError):
+                    await self.send_message(
+                        "שימוש: <code>/buy &lt;amount_sol&gt; &lt;token_address&gt;</code>\n"
+                        "דוגמה: <code>/buy 0.1 DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263</code>",
+                        parse_mode="HTML"
+                    )
+            else:
+                await self.send_message(
+                    "שימוש: <code>/buy &lt;amount_sol&gt; &lt;token_address&gt;</code>\n"
+                    "דוגמה: <code>/buy 0.1 &lt;address&gt;</code>",
+                    parse_mode="HTML"
+                )
+            return
+        
+        # /sell או "מכור" - מכירה
+        if text.startswith("/sell") or normalized.startswith("מכור ") or normalized.startswith("sell "):
+            parts = text.split(maxsplit=1)
+            if len(parts) >= 2:
+                token_address = parts[1]
+                if self._sell_provider:
+                    await self.send_message(
+                        f"🔄 בוא נמכור! מוכר <code>{self._e(token_address)}</code>...",
+                        parse_mode="HTML"
+                    )
+                    try:
+                        result = await self._sell_provider(token_address)
+                        await self.send_message(result, parse_mode="HTML")
+                    except Exception as e:
+                            await self.send_message(
+                                f"אופס, המכירה נכשלה 😅\n{self._e(str(e))}",
+                                parse_mode="HTML"
+                            )
+                else:
+                    await self.send_message("אופס, Sell לא זמין כרגע 😅", parse_mode="HTML")
+            else:
+                await self.send_message(
+                    "שימוש: <code>/sell &lt;token_address&gt;</code>\n"
+                    "דוגמה: <code>/sell DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263</code>",
+                    parse_mode="HTML"
+                )
+            return
+        
+        # /portfolio או "תיק" - הצגת פוזיציות
+        if text in ("/portfolio", "portfolio", "תיק", "💼 תיק", "/positions", "positions"):
+            if self._portfolio_provider:
+                try:
+                    result = await self._portfolio_provider()
+                    await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
+                except Exception as e:
+                        await self.send_message(
+                            f"אופס, שגיאה בהצגת תיק: {self._e(str(e))} 😅",
+                            parse_mode="HTML"
+                        )
+            else:
+                await self.send_message("אופס, Portfolio לא זמין כרגע 😅", parse_mode="HTML")
+            return
+        
+        # טיפול בסכום מותאם (אחרי buy_custom)
+        # אם ההודעה היא מספר, זה יכול להיות סכום לקנייה
+        try:
+            amount_sol = float(text)
+            # בדוק אם יש token_address ב-state (נצטרך להוסיף state management)
+            # כרגע נדלג על זה - נשתמש בפקודה /buy מלאה
+        except ValueError:
+            pass
+        
         # Friendly fallback (Hebrew + examples) - שיחה טבעית יותר
         await self.send_message(
             "<b>לא הבנתי</b> 🙂\n\n"
@@ -1091,6 +1199,9 @@ class TelegramBotController:
             "• <code>סטטוס</code> / <code>/status</code>\n"
             "• <code>טופ</code> / <code>/top</code>\n"
             "• <code>בדוק &lt;כתובת טוקן&gt;</code>\n"
+            "• <code>קנה &lt;amount&gt; &lt;address&gt;</code> / <code>/buy</code>\n"
+            "• <code>מכור &lt;address&gt;</code> / <code>/sell</code>\n"
+            "• <code>תיק</code> / <code>/portfolio</code>\n"
             "• <code>השתק 30ד</code> / <code>/mute 30m</code>\n"
             "• <code>תפריט</code> / <code>/menu</code>\n"
             "• <code>עזרה</code> / <code>/help</code>",
@@ -1121,9 +1232,12 @@ def build_telegram_controller(
     add_favorite_provider: Optional[AddFavoriteProvider] = None,
     remove_favorite_provider: Optional[RemoveFavoriteProvider] = None,
     export_provider: Optional[ExportProvider] = None,
-    filter_provider: Optional[FilterProvider] = None,
-    get_filters_provider: Optional[GetFiltersProvider] = None,
-    trends_provider: Optional[TrendsProvider] = None,
+        filter_provider: Optional[FilterProvider] = None,
+        get_filters_provider: Optional[GetFiltersProvider] = None,
+        trends_provider: Optional[TrendsProvider] = None,
+        buy_provider: Optional[BuyProvider] = None,
+        sell_provider: Optional[SellProvider] = None,
+        portfolio_provider: Optional[PortfolioProvider] = None,
 ) -> Optional[TelegramBotController]:
     if not settings.telegram_bot_token or not settings.telegram_chat_id:
         return None
@@ -1155,5 +1269,8 @@ def build_telegram_controller(
         filter_provider=filter_provider,
         get_filters_provider=get_filters_provider,
         trends_provider=trends_provider,
+        buy_provider=buy_provider,
+        sell_provider=sell_provider,
+        portfolio_provider=portfolio_provider,
     )
 
