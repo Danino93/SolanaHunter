@@ -87,6 +87,17 @@ def main():
     ok, details = check_env_file()
     status = "[OK]" if ok else "[WARN]"
     table.add_row("Configuration", status, details)
+
+    # Telegram configuration (optional)
+    try:
+        from core.config import settings as app_settings
+
+        if app_settings.telegram_bot_token and app_settings.telegram_chat_id:
+            table.add_row("Telegram", "[OK]", "TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID set")
+        else:
+            table.add_row("Telegram", "[INFO]", "Not set (Week 2)")
+    except Exception as e:
+        table.add_row("Telegram", "[WARN]", f"Could not load settings: {e}")
     
     # Logs directory
     ok, details = check_logs_dir()

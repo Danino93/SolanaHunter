@@ -40,7 +40,7 @@
 
 ### Day 1 (היום) - Setup + First Scan
 - [x] הוספת HELIUS_API_KEY
-- [ ] יצירת .env מהקובץ env.example
+- [X ] יצירת .env מהקובץ env.example
 - [ ] התקנת dependencies
 - [ ] בדיקת שהבוט רץ
 - [ ] בדיקה שהסריקה עובדת

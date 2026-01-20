@@ -18,6 +18,7 @@ from analyzer.holder_analyzer import HolderAnalyzer
 from analyzer.scoring_engine import ScoringEngine
 from analyzer.smart_money_tracker import get_smart_money_tracker
 from analyzer.smart_money_discovery import get_discovery_engine
+from communication.telegram_bot import build_telegram_controller
 
 # Setup logging
 logger = setup_logger("solanahunter", settings.log_level)
@@ -33,14 +34,22 @@ class SolanaHunter:
         self.holder_analyzer = HolderAnalyzer()
         self.scoring_engine = ScoringEngine(alert_threshold=settings.alert_threshold)
         self.discovery_engine = get_discovery_engine()
+        self.telegram = build_telegram_controller(
+            status_provider=self._telegram_status,
+            check_provider=self._telegram_check_token,
+        )
         self.running = False
         self.initial_discovery_done = False
+        self._alerts_sent: set[str] = set()
     
     async def start(self):
         """Start the bot"""
         self.running = True
         
         # Display startup banner
+        comm_status = (
+            "[green]✓[/green] Telegram: Ready\n" if self.telegram else "[yellow]⚠[/yellow] Telegram: Not configured\n"
+        )
         banner = Panel.fit(
             "[bold cyan]🚀 SolanaHunter[/bold cyan]\n"
             "[dim]AI-Powered Solana Token Hunter & Trading Bot[/dim]\n\n"
@@ -49,14 +58,19 @@ class SolanaHunter:
             f"[green]✓[/green] Analyzer: Ready (Day 2-4, 6)\n"
             f"[green]✓[/green] Scoring: Ready\n"
             f"[green]✓[/green] Smart Money: Auto-Discovery Enabled\n"
+            f"{comm_status}"
             f"[yellow]⚠[/yellow] Executor: Day 15\n"
-            f"[yellow]⚠[/yellow] Communication: Day 8\n",
+            f"[green]✓[/green] Communication: Day 8-11 (Telegram)\n",
             title="[bold]System Status[/bold]",
             border_style="cyan"
         )
         console.print(banner)
         
         logger.info("🚀 SolanaHunter started successfully")
+
+        # Start Telegram polling (non-blocking)
+        if self.telegram:
+            asyncio.create_task(self.telegram.start())
         
         # Run initial smart wallet discovery (once, in background)
         if not self.initial_discovery_done:
@@ -136,6 +150,11 @@ class SolanaHunter:
                                         f"🔥 HIGH SCORE ALERT: {token['symbol']} - "
                                         f"{token_score.final_score}/100 ({token_score.grade.value})"
                                     )
+
+                                    # Telegram alert (send once per token)
+                                    if self.telegram and token.get("address") and token["address"] not in self._alerts_sent:
+                                        self._alerts_sent.add(token["address"])
+                                        asyncio.create_task(self.telegram.send_alert(token))
                                 
                                 # Auto-discovery: If token performs well, discover smart wallets
                                 # This runs in background to not slow down scanning
@@ -177,7 +196,57 @@ class SolanaHunter:
         await self.scanner.close()
         await self.holder_analyzer.close()
         await self.discovery_engine.close()
+        if self.telegram:
+            await self.telegram.stop()
         logger.info("✅ Shutdown complete")
+
+    # ---------------------------
+    # Telegram helpers
+    # ---------------------------
+    def _telegram_status(self) -> str:
+        return (
+            "SolanaHunter is running.\n"
+            f"Scan interval: {settings.scan_interval_seconds}s\n"
+            f"Alert threshold: {settings.alert_threshold}\n"
+            f"Smart wallets tracked: {get_smart_money_tracker().get_smart_wallet_count()}\n"
+        )
+
+    async def _telegram_check_token(self, token_address: str) -> str:
+        """
+        On-demand analysis for /check <token_address>.
+        """
+        if not self.contract_checker:
+            # If scan loop didn't start yet, create a temporary checker
+            checker = ContractChecker()
+            await checker.__aenter__()
+            try:
+                safety = await checker.check_contract(token_address)
+            finally:
+                await checker.__aexit__(None, None, None)
+        else:
+            safety = await self.contract_checker.check_contract(token_address)
+
+        holders = await self.holder_analyzer.analyze(token_address)
+        holder_addresses = [h.get("address", "") for h in holders.top_holders]
+        smart_money_count = get_smart_money_tracker().check_if_holds(token_address, holder_addresses)
+
+        token_score = self.scoring_engine.calculate_score(
+            safety=safety,
+            holders=holders,
+            smart_money_count=smart_money_count,
+        )
+
+        return (
+            f"📊 *Token Check*\n\n"
+            f"*Score:* *{token_score.final_score}/100* ({token_score.grade.value})\n"
+            f"*Category:* {token_score.category.value}\n\n"
+            f"Safety: {safety.safety_score}/100\n"
+            f"Holders: {holders.holder_count} ({holders.holder_score}/20)\n"
+            f"Top10%: {holders.top_10_percentage:.1f}%\n"
+            f"Smart Money: {smart_money_count} ({token_score.smart_money_score}/15)\n\n"
+            f"`{token_address}`\n"
+            f"[DexScreener](https://dexscreener.com/solana/{token_address})"
+        )
 
 
 def setup_signal_handlers(bot: SolanaHunter):

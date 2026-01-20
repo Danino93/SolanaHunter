@@ -299,26 +299,35 @@
 
 ### Day 8: Telegram Bot Setup
 **תאריך:** _למלא_  
-**סטטוס:** ⏳ לא התחיל
+**סטטוס:** 🟡 בעבודה (קוד הוכן, ממתין להגדרת `.env`)
 
 **מה בוצע:**
-- [ ] Telegram Bot נוצר (@BotFather)
-- [ ] Bot Token התקבל
-- [ ] TelegramBot class נוצר
-- [ ] הודעת טסט נשלחה
-- [ ] בדיקה שההודעה הגיעה
+- [x] Telegram Bot Controller נוצר (ללא SDK, Bot API ישיר + long-polling)
+- [x] אינטגרציה עם `main.py` (התראות על 85+ + כפתורים)
+- [x] פקודות נתמכות: `/status`, `/check <token_address>`, `/help`
+- [x] `verify_setup.py` עודכן לזהות Telegram env vars
+- [ ] Bot Token + Chat ID הוזנו ל-`backend/.env` (נדרש כדי להפעיל)
+- [ ] הודעת טסט נשלחה והגיעה
 
 **בעיות שנתקלנו:**
-- 
+- קונפליקטים ב-deps (`httpx`) עם `solana-py` → פתרנו ע״י שימוש ב-Telegram Bot API ישיר (ללא `python-telegram-bot`)
+- `env.example` הכיל בטעות מפתח אמיתי → הוחזר ל-placeholder (נדרש rotate למפתח)
 
 **מה למדנו:**
-- 
+- איך להריץ Telegram bot עם long-polling בלי webhook ובלי SDK
+- איך לשלב alerts וכפתורים בלי לשבור את ה-loop הראשי
 
 **הערות:**
-- 
+- חשוב: ה-token וה-chat id חייבים להיות ב-`backend/.env` בשם:
+  - `TELEGRAM_BOT_TOKEN`
+  - `TELEGRAM_CHAT_ID`
 
 **קבצים שנוצרו/שונו:**
-- 
+- `backend/communication/telegram_bot.py` - חדש
+- `backend/main.py` - שולח alerts לטלגרם + פקודות
+- `backend/verify_setup.py` - בדיקת Telegram
+- `backend/env.example` - הוסר מפתח אמיתי, נוסף Telegram section
+- `backend/requirements.txt` - מינימלי (Windows-friendly) + pin ל-`httpx`
 
 ---
 

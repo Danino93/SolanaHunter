@@ -7,10 +7,20 @@ import os
 from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field, validator
+from pydantic_settings import SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application settings with validation"""
+
+    # Allow extra env vars (e.g., legacy WHATSAPP_* entries) without crashing
+    model_config = SettingsConfigDict(
+        # Support both running from `backend/` and from repo root
+        env_file=(".env", "../.env"),
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
     
     # ============================================
     # Solana RPC & APIs
@@ -28,8 +38,9 @@ class Settings(BaseSettings):
     # ============================================
     # Database (Supabase)
     # ============================================
-    supabase_url: str = Field(..., env="SUPABASE_URL")
-    supabase_key: str = Field(..., env="SUPABASE_KEY")
+    # Optional for Week 1-2 (we can wire DB later)
+    supabase_url: Optional[str] = Field(None, env="SUPABASE_URL")
+    supabase_key: Optional[str] = Field(None, env="SUPABASE_KEY")
     supabase_service_key: Optional[str] = Field(None, env="SUPABASE_SERVICE_KEY")
     
     # ============================================
@@ -64,10 +75,7 @@ class Settings(BaseSettings):
     birdeye_api_key: Optional[str] = Field(None, env="BIRDEYE_API_KEY")
     solscan_api_key: Optional[str] = Field(None, env="SOLSCAN_API_KEY")
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    # (legacy Config removed; model_config above is the v2 way)
 
 
 # Global settings instance
