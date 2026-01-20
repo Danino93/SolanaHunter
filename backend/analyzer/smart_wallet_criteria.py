@@ -1,11 +1,43 @@
 """
 Smart Wallet Criteria
 Intelligent criteria for identifying smart money wallets
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שקובע את הקריטריונים לזיהוי Smart Money Wallets.
+
+הקובץ הזה:
+1. מגדיר את הקריטריונים המינימליים ל-Smart Money
+2. בודק אם ארנק עומד בקריטריונים
+3. מחשב "smart score" (0-100) לכל ארנק
+
+🔧 קריטריונים מינימליים:
+- min_win_rate: 50% (חצי מהטrades רווחיים)
+- min_avg_profit: 2.5x (רווח ממוצע של x2.5)
+- min_trades: 5 (מינימום 5 טrades)
+- min_consistency: 0.3 (עקביות מינימלית)
+
+🔧 פונקציות עיקריות:
+- evaluate(stats) - בודק אם ארנק עומד בקריטריונים
+- get_smart_score(stats) - מחשב ציון חכמה (0-100)
+
+💡 איך זה עובד:
+1. מקבל WalletStats object עם כל הנתונים
+2. בודק כל קריטריון בנפרד
+3. אם עומד בכל הקריטריונים → True (Smart Money)
+4. מחשב ציון חכמה לפי הביצועים
+
+📝 הערות:
+- זה ה-"מוח" שקובע מי חכם ומי לא
+- הקריטריונים ניתנים להתאמה (ניתן לשנות ב-SmartWalletCriteria)
+- ציון גבוה יותר = ארנק יותר חכם
 """
 
 from dataclasses import dataclass
-from typing import Optional
-from analyzer.wallet_performance_analyzer import WalletStats
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from analyzer.wallet_performance_analyzer import WalletStats
 
 
 @dataclass
@@ -32,7 +64,7 @@ class SmartWalletEvaluator:
     def __init__(self, criteria: Optional[SmartWalletCriteria] = None):
         self.criteria = criteria or SmartWalletCriteria()
     
-    def evaluate(self, stats: WalletStats) -> tuple[bool, str]:
+    def evaluate(self, stats: "WalletStats") -> tuple[bool, str]:
         """
         Evaluate if wallet meets smart money criteria
         
@@ -67,7 +99,7 @@ class SmartWalletEvaluator:
         
         return False, " | ".join(reasons)
     
-    def get_smart_score(self, stats: WalletStats) -> float:
+    def get_smart_score(self, stats: "WalletStats") -> float:
         """
         Calculate smart score (0-100)
         

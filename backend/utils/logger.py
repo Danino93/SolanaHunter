@@ -1,6 +1,32 @@
 """
 Modern Logging System
 Structured logging with colors and rich formatting
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שמנהל את כל הלוגים (הודעות, שגיאות, אזהרות) של הבוט.
+
+הקובץ הזה:
+1. מגדיר איך לוגים יוצגו (צבעים, פורמט)
+2. שומר לוגים לקובץ (logs/solanahunter.log)
+3. מציג לוגים במסך (console) עם צבעים יפים
+4. תומך ב-structured logging (לוגים מובנים)
+
+🔧 פונקציות עיקריות:
+- setup_logger(name, level) - מגדיר logger חדש
+- get_logger(name) - מקבל logger קיים
+
+💡 איך זה עובד:
+1. כל מודול יוצר logger משלו (scanner, analyzer, telegram, וכו')
+2. כל הודעה נשמרת גם לקובץ וגם מוצגת במסך
+3. לוגים עם רמות שונות: DEBUG, INFO, WARNING, ERROR, CRITICAL
+4. משתמש ב-Rich library לצבעים יפים במסך
+
+📝 הערות:
+- כל הלוגים נשמרים ב-logs/solanahunter.log
+- רמת הלוג נקבעת ב-LOG_LEVEL ב-.env (ברירת מחדל: INFO)
+- לוגים עם emojis יפים (🚀, ✅, ❌, וכו')
+- Structured logging מאפשר חיפוש וניתוח קל יותר
 """
 
 import logging

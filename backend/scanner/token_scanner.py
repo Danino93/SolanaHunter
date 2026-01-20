@@ -1,6 +1,33 @@
 """
 Intelligent Token Scanner
 Modern scanner with AI-powered filtering and multi-source discovery
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שסורק ומזהה טוקנים חדשים ברשת Solana.
+
+הקובץ הזה:
+1. סורק טוקנים חדשים ממספר מקורות (DexScreener, Helius)
+2. מסיר כפילויות (deduplication)
+3. מסנן טוקנים ישנים (רק טוקנים שנוצרו ב-24 שעות האחרונות)
+4. מציג את התוצאות בטבלה יפה
+
+🔧 פונקציות עיקריות:
+- discover_new_tokens(hours=24) - מוצא טוקנים חדשים
+- display_tokens(tokens) - מציג טבלה יפה עם כל הטוקנים
+- close() - סגירה נקייה של החיבורים
+
+💡 איך זה עובד:
+1. שולח בקשות ל-DexScreener API ו-Helius RPC
+2. אוסף את כל הטוקנים החדשים
+3. מסיר כפילויות (לפי כתובת)
+4. מסנן רק טוקנים שנוצרו ב-24 שעות האחרונות
+5. מחזיר רשימה של טוקנים חדשים
+
+📝 הערות:
+- משתמש ב-async/await לניהול I/O יעיל
+- תומך ב-multi-source discovery (אם מקור אחד נכשל, מנסה את השני)
+- מציג טבלה יפה עם Rich library
 """
 
 import asyncio

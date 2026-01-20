@@ -1,6 +1,34 @@
 """
 Holder Analysis Module
 Analyze token holder distribution and concentration
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שמנתח את פיזור המחזיקים של כל טוקן.
+
+הקובץ הזה:
+1. מוצא את כל המחזיקים של הטוקן (Top Holders)
+2. מחשב כמה אחוזים מהטוקנים בידי Top 10 מחזיקים
+3. בודק אם יש ריכוזיות (concentration) - סיכון למניפולציה
+4. מחזיר ציון מחזיקים (0-20 נקודות)
+
+🔧 פונקציות עיקריות:
+- analyze(address) - מנתח את כל המחזיקים
+- calculate_concentration(top_holders) - מחשב ריכוזיות
+- assign_holder_score(holders) - נותן ציון (0-20)
+
+💡 איך זה עובד:
+1. שולח בקשה ל-Solscan API לקבלת רשימת מחזיקים
+2. מחשב כמה אחוזים בידי Top 10 מחזיקים
+3. בודק כמה מחזיקים יש בסך הכל
+4. נותן ציון לפי:
+   - Top 10% < 50% = טוב (10 נקודות)
+   - יותר מ-1000 מחזיקים = טוב (10 נקודות)
+
+📝 הערות:
+- ריכוזיות גבוהה = סיכון למניפולציה במחיר
+- טוקן עם הרבה מחזיקים = יותר מבוזר = טוב יותר
+- משתמש ב-Solscan API לנתוני מחזיקים
 """
 
 import asyncio

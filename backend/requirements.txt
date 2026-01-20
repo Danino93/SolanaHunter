@@ -31,3 +31,7 @@ rich==13.7.0  # Beautiful terminal output
 structlog==23.2.0  # Structured logging
 
 # Web / AI / Dev dependencies will be added later when we reach those days in the plan.
+
+# FastAPI & Web Server (for Dashboard API)
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0

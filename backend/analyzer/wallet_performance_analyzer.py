@@ -1,6 +1,34 @@
 """
 Wallet Performance Analyzer
 Analyze wallet trading performance to identify smart money
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שמנתח את הביצועים של ארנק כדי לזהות אם הוא Smart Money.
+
+הקובץ הזה:
+1. אוסף את כל הטרנזקציות של ארנק
+2. מחשב win rate (אחוז הצלחות)
+3. מחשב average profit (רווח ממוצע)
+4. מחשב consistency score (עקביות)
+5. מחזיר WalletStats object עם כל הנתונים
+
+🔧 פונקציות עיקריות:
+- analyze_wallet(address) - מנתח את כל הביצועים של ארנק
+- calculate_win_rate(trades) - מחשב אחוז הצלחות
+- calculate_avg_profit(trades) - מחשב רווח ממוצע
+
+💡 איך זה עובד:
+1. שולח בקשה ל-Solscan API לקבלת כל הטרנזקציות של הארנק
+2. ממיין את הטרנזקציות לפי זמן
+3. מחשב את הביצועים: כמה trades רווחיים, כמה הפסדיים
+4. מחשב win rate, average profit, consistency
+5. מחזיר WalletStats עם כל הנתונים
+
+📝 הערות:
+- זה חלק מהמערכת של Smart Money Auto-Discovery
+- הקריטריונים ל-Smart Money: win rate > 50%, avg profit > 2.5x, min 5 trades
+- משתמש ב-Solscan API לנתוני טרנזקציות
 """
 
 import asyncio

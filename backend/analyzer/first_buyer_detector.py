@@ -1,11 +1,35 @@
 """
 First Buyer Detector
 Detect wallets that bought tokens early (first 24 hours)
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שמוצא מי היו הקונים הראשונים של טוקן (24 שעות ראשונות).
+
+הקובץ הזה:
+1. מחפש את כל הקונים הראשונים של טוקן (24 שעות ראשונות)
+2. מחזיר רשימה של ארנקים שקנו מוקדם
+3. משמש את Smart Money Discovery Engine למציאת ארנקים חכמים
+
+🔧 פונקציות עיקריות:
+- detect_first_buyers(token_address) - מוצא את כל הקונים הראשונים
+- get_buy_timestamp(wallet, token) - מוצא מתי ארנק קנה
+
+💡 איך זה עובד:
+1. שולח בקשה ל-Solscan API לקבלת טרנזקציות של הטוקן
+2. מסנן רק טרנזקציות קנייה (buy) מ-24 השעות הראשונות
+3. מחזיר רשימה של ארנקים שקנו מוקדם
+
+📝 הערות:
+- זה חלק מהמערכת של Smart Money Auto-Discovery
+- ארנקים שקנו מוקדם טוקנים מוצלחים = פוטנציאל ל-Smart Money
+- משתמש ב-Solscan API לנתוני טרנזקציות
 """
 
 import asyncio
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
+from dataclasses import dataclass
 import httpx
 
 from utils.logger import get_logger

@@ -1,6 +1,41 @@
 """
 Scoring Engine
 Comprehensive token scoring system (0-100)
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שנותן ציון לכל טוקן (0-100) בהתבסס על ניתוח מקיף.
+
+הקובץ הזה:
+1. מחשב ציון בטיחות (0-60 נקודות) - לפי בדיקת החוזה
+2. מחשב ציון מחזיקים (0-20 נקודות) - לפי פיזור המחזיקים
+3. מחשב ציון Smart Money (0-15 נקודות) - כמה Smart Money wallets מחזיקים
+4. מחשב ציון סופי (0-100) - סכום כל הציונים
+5. קובע grade (A+, A, B+, B, C+, C, F) וקטגוריה (EXCELLENT, GOOD, FAIR, POOR)
+
+🔧 פונקציות עיקריות:
+- calculate_score(safety, holders, smart_money_count) - מחשב ציון מלא
+- should_alert(score) - בודק אם צריך לשלוח התראה (ציון >= סף)
+- get_score_summary(score) - מחזיר סיכום טקסטואלי
+
+📊 נוסחת הציון:
+- Safety Score: 0-60 נקודות (מבדיקת חוזה)
+- Holder Score: 0-20 נקודות (מניתוח מחזיקים)
+- Smart Money Score: 0-15 נקודות (5 נקודות לכל Smart Money wallet, מקסימום 15)
+- Social Score: 0-15 נקודות (עדיין לא מיושם)
+- סה"כ: 0-100 נקודות
+
+💡 איך זה עובד:
+1. מקבל את תוצאות הניתוח (ContractSafety, HolderAnalysis, smart_money_count)
+2. מחשב כל ציון בנפרד
+3. מסכם את כל הציונים (עד מקסימום 100)
+4. קובע grade וקטגוריה לפי הציון הסופי
+5. מחזיר TokenScore object עם כל הפרטים
+
+📝 הערות:
+- הסף להתראה הוא ברירת מחדל 85 (ניתן לשנות ב-ALERT_THRESHOLD)
+- Grade A+ = 95-100, A = 90-94, B+ = 85-89, וכו'
+- הקטגוריה קובעת את רמת הסיכון: EXCELLENT = 85+, GOOD = 75+, וכו'
 """
 
 from typing import Dict, Optional

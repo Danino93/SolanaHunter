@@ -1,0 +1,41 @@
+name: CD - Deploy
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/cd.yml'
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend (Railway)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to Railway
+      # Railway deployment happens via Railway CLI or GitHub integration
+      # This is a placeholder - actual deployment depends on Railway setup
+      run: |
+        echo "🚀 Backend deployment would happen here"
+        echo "Configure Railway GitHub integration for automatic deployment"
+      continue-on-error: true
+
+  deploy-frontend:
+    name: Deploy Frontend (Vercel)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.modified, 'frontend/')
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to Vercel
+      # Vercel deployment happens via Vercel GitHub integration
+      # This is a placeholder - actual deployment depends on Vercel setup
+      run: |
+        echo "🚀 Frontend deployment would happen here"
+        echo "Configure Vercel GitHub integration for automatic deployment"
+      continue-on-error: true

@@ -1,6 +1,22 @@
 """
 Setup Verification Script
 Checks that all dependencies and configuration are correct
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה קובץ בדיקה שמאמת שהכל מוגדר נכון לפני הפעלת הבוט.
+
+הקובץ הזה:
+1. בודק את גרסת Python (חייב 3.11+)
+2. בודק שכל ה-dependencies מותקנים
+3. בודק שה-API keys מוגדרים ב-.env
+4. בודק חיבורים ל-Helius, Supabase, Telegram
+5. מציג טבלה יפה עם כל התוצאות
+
+🔧 איך להשתמש:
+python verify_setup.py
+
+💡 טיפ: הרץ את זה לפני python main.py כדי לוודא שהכל מוכן!
 """
 
 import sys
@@ -98,6 +114,38 @@ def main():
             table.add_row("Telegram", "[INFO]", "Not set (Week 2)")
     except Exception as e:
         table.add_row("Telegram", "[WARN]", f"Could not load settings: {e}")
+    
+    # Wallet configuration (Day 15+)
+    try:
+        from core.config import settings as app_settings
+        
+        if app_settings.wallet_private_key:
+            # נסה ליצור wallet manager
+            try:
+                import asyncio
+                from executor.wallet_manager import WalletManager
+                
+                async def check_wallet():
+                    try:
+                        wallet = WalletManager()
+                        balance = await wallet.get_balance()
+                        address = wallet.get_address()
+                        await wallet.close()
+                        return True, f"Connected! Address: {address[:8]}... Balance: {balance:.4f} SOL"
+                    except Exception as e:
+                        return False, f"Error: {str(e)[:50]}"
+                
+                ok, details = asyncio.run(check_wallet())
+                status = "[OK]" if ok else "[FAIL]"
+                table.add_row("Wallet", status, details)
+            except ImportError:
+                table.add_row("Wallet", "[INFO]", "WalletManager not available (Day 15)")
+            except Exception as e:
+                table.add_row("Wallet", "[WARN]", f"Could not check wallet: {str(e)[:50]}")
+        else:
+            table.add_row("Wallet", "[INFO]", "WALLET_PRIVATE_KEY not set (Day 15+)")
+    except Exception as e:
+        table.add_row("Wallet", "[WARN]", f"Could not load wallet settings: {e}")
     
     # Logs directory
     ok, details = check_logs_dir()

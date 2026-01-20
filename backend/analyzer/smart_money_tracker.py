@@ -1,6 +1,35 @@
 """
 Smart Money Tracker
 Track successful wallets and detect their positions
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שמנהל את רשימת ה-Smart Money Wallets (ארנקים חכמים).
+
+הקובץ הזה:
+1. שומר רשימה של Smart Money Wallets (ארנקים שהצליחו בעבר)
+2. בודק אם ארנקים חכמים מחזיקים טוקן מסוים
+3. טוען ושומר את הרשימה מקובץ JSON
+4. מספק גישה נוחה לרשימת הארנקים החכמים
+
+🔧 פונקציות עיקריות:
+- check_if_holds(token_address, holder_addresses) - בודק אם Smart Money מחזיק טוקן
+- add_wallet(address, nickname) - מוסיף ארנק חדש לרשימה
+- get_smart_wallet_count() - מחזיר כמה ארנקים חכמים יש
+- load_from_file() - טוען רשימה מקובץ JSON
+- save_to_file() - שומר רשימה לקובץ JSON
+
+💡 איך זה עובד:
+1. טוען רשימה של Smart Money Wallets מקובץ data/smart_wallets.json
+2. כשמנתחים טוקן, בודק אם אחד מהמחזיקים הוא Smart Money
+3. כל Smart Money wallet שמוצא = 5 נקודות (מקסימום 15 נקודות)
+4. הרשימה מתעדכנת אוטומטית על ידי Smart Money Discovery Engine
+
+📝 הערות:
+- הרשימה נשמרת ב-data/smart_wallets.json
+- Smart Money Discovery Engine מוסיף ארנקים חדשים אוטומטית
+- כל ארנק חכם = 5 נקודות לציון הסופי (מקסימום 15)
+- זה חלק חשוב מהציון הסופי של כל טוקן!
 """
 
 from typing import List, Dict, Set, Optional

@@ -1,6 +1,34 @@
 """
 Contract Safety Checker
 Advanced smart contract security analysis
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שבודק את הבטיחות של החוזה החכם (Smart Contract) של כל טוקן.
+
+הקובץ הזה:
+1. בודק אם Ownership renounced (בעלות בוטלה) - 33 נקודות
+2. בודק אם Liquidity locked (נעול) - 33 נקודות
+3. בודק אם Mint authority disabled (לא יכול להדפיס עוד) - 34 נקודות
+4. מחזיר ציון בטיחות (0-100)
+
+🔧 פונקציות עיקריות:
+- check_contract(address) - בודק את כל הבטיחות של החוזה
+- is_ownership_renounced(address) - בודק אם בעלות בוטלה
+- is_liquidity_locked(address) - בודק אם נזילות נעולה
+- can_mint_more(address) - בודק אם יכול להדפיס עוד טוקנים
+
+💡 איך זה עובד:
+1. מתחבר ל-Solana RPC (דרך Helius)
+2. קורא את המידע של החוזה מהבלוקצ'יין
+3. בודק את ה-metadata של החוזה
+4. מחפש ב-DexScreener אם יש נעילת נזילות
+5. מחזיר ContractSafety object עם כל הפרטים
+
+📝 הערות:
+- זה הבדיקה הכי חשובה! טוקן עם בעלות לא בוטלה = סיכון גבוה
+- כל בדיקה שעוברת = נקודות (סה"כ מקסימום 100)
+- משתמש ב-Solscan API ו-DexScreener API לבדיקות נוספות
 """
 
 import asyncio

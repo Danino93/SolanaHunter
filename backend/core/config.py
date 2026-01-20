@@ -1,6 +1,35 @@
 """
 Configuration Management
 Modern, type-safe configuration with Pydantic
+
+📋 מה הקובץ הזה עושה:
+-------------------
+זה הקובץ שמנהל את כל ההגדרות של הבוט (API keys, הגדרות, וכו').
+
+הקובץ הזה:
+1. קורא את כל המשתנים מ-.env file
+2. בודק שהכל תקין (validation)
+3. מספק הגדרות ברירת מחדל
+4. מאפשר גישה נוחה לכל ההגדרות דרך settings object
+
+🔧 משתנים חשובים:
+- HELIUS_API_KEY - מפתח API ל-Helius (חובה!)
+- TELEGRAM_BOT_TOKEN - טוקן בוט טלגרם
+- TELEGRAM_CHAT_ID - ID של הצ'אט שלך
+- ALERT_THRESHOLD - סף התראה (ברירת מחדל: 85)
+- SCAN_INTERVAL_SECONDS - תדירות סריקה (ברירת מחדל: 300 = 5 דקות)
+
+💡 איך זה עובד:
+1. קורא את הקובץ .env מהתיקייה
+2. משתמש ב-Pydantic לבדיקת תקינות
+3. יוצר Settings object עם כל ההגדרות
+4. כל הקוד משתמש ב-settings.xxx כדי לגשת להגדרות
+
+📝 הערות:
+- כל המשתנים חייבים להיות ב-.env file
+- יש קובץ env.example עם כל המשתנים הנדרשים
+- אם משתנה חסר, הבוט יכשל בהפעלה (חוץ מאופציונליים)
+- ⚠️ לעולם אל תעלה את .env ל-GitHub! (יש ב-.gitignore)
 """
 
 import os
