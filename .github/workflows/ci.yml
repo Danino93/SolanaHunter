@@ -95,7 +95,7 @@ jobs:
         from analyzer.holder_analyzer import HolderAnalyzer
         from analyzer.scoring_engine import ScoringEngine
         from analyzer.smart_money_tracker import SmartMoneyTracker
-        from analyzer.smart_money_discovery import SmartMoneyDiscoveryEngine
+        from analyzer.smart_money_discovery import SmartMoneyDiscovery, get_discovery_engine
         print('✅ All analyzer modules imported')
         "
     

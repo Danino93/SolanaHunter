@@ -278,12 +278,9 @@ CREATE INDEX IF NOT EXISTS idx_alerts_read ON alerts(is_read);
 -- טבלה לשמירת טוקנים במעקב
 
 CREATE TABLE IF NOT EXISTS watched_tokens (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  token_address TEXT REFERENCES tokens(address) ON DELETE CASCADE,
+  token_address TEXT PRIMARY KEY REFERENCES tokens(address) ON DELETE CASCADE,
   added_at TIMESTAMP DEFAULT NOW(),
-  notes TEXT,
-  
-  PRIMARY KEY (token_address)
+  notes TEXT
 );
 
 -- Indexes for watched_tokens
@@ -295,12 +292,9 @@ CREATE INDEX IF NOT EXISTS idx_watched_tokens_added ON watched_tokens(added_at D
 -- טבלה לשמירת טוקנים מועדפים
 
 CREATE TABLE IF NOT EXISTS favorites (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  token_address TEXT REFERENCES tokens(address) ON DELETE CASCADE,
+  token_address TEXT PRIMARY KEY REFERENCES tokens(address) ON DELETE CASCADE,
   added_at TIMESTAMP DEFAULT NOW(),
-  notes TEXT,
-  
-  PRIMARY KEY (token_address)
+  notes TEXT
 );
 
 -- Indexes for favorites
@@ -332,9 +326,7 @@ CREATE TABLE IF NOT EXISTS bot_stats (
   total_profit_usd FLOAT DEFAULT 0.0,
   
   -- Updated timestamp
-  updated_at TIMESTAMP DEFAULT NOW(),
-  
-  PRIMARY KEY (id)
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Indexes for bot_stats
