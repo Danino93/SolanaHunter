@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+import html
+import re
 from typing import Awaitable, Callable, Optional
 
 import httpx
@@ -24,6 +27,7 @@ logger = get_logger("telegram")
 
 StatusProvider = Callable[[], str]
 CheckProvider = Callable[[str], Awaitable[str]]
+TopProvider = Callable[[int], str]
 
 
 @dataclass
@@ -38,15 +42,19 @@ class TelegramBotController:
         config: TelegramBotConfig,
         status_provider: StatusProvider,
         check_provider: CheckProvider,
+        top_provider: Optional[TopProvider] = None,
     ):
         self.config = config
         self._status_provider = status_provider
         self._check_provider = check_provider
+        self._top_provider = top_provider
 
         self._client: Optional[httpx.AsyncClient] = None
         self._task: Optional[asyncio.Task] = None
         self._running = False
         self._update_offset: int = 0
+        self._mute_until: Optional[datetime] = None
+        self._alerts_sent_count: int = 0
 
     @property
     def is_configured(self) -> bool:
@@ -64,7 +72,16 @@ class TelegramBotController:
         self._task = asyncio.create_task(self._poll_loop())
         logger.info("Telegram long-polling started")
         try:
-            await self.send_message("✅ SolanaHunter connected. Send /status or /check <token_address>.")
+            await self.send_message(
+                "<b>✅ SolanaHunter connected</b>\n\n"
+                "Try:\n"
+                "• <code>/status</code>\n"
+                "• <code>/check &lt;token_address&gt;</code>\n"
+                "• <code>/top</code>\n"
+                "• <code>/mute 30m</code>\n"
+                "• <code>/help</code>",
+                parse_mode="HTML",
+            )
         except Exception as e:
             logger.warning(f"Telegram ready message failed: {e}")
 
@@ -135,6 +152,8 @@ class TelegramBotController:
         r.raise_for_status()
 
     async def send_alert(self, token: dict) -> None:
+        if self.is_muted:
+            return
         symbol = token.get("symbol", "N/A")
         address = token.get("address", "")
         final_score = token.get("final_score", 0)
@@ -143,15 +162,19 @@ class TelegramBotController:
         holders = token.get("holder_count", 0)
         smart_money = token.get("smart_money_count", 0)
 
+        symbol_e = self._e(symbol)
+        addr_e = self._e(address)
+        dex_url = f"https://dexscreener.com/solana/{address}"
+
         text = (
-            f"🚨 *HIGH SCORE TOKEN*\n\n"
-            f"*Token:* `{symbol}`\n"
-            f"*Score:* *{final_score}/100* ({grade})\n\n"
+            "🚨 <b>HIGH SCORE TOKEN</b>\n\n"
+            f"<b>Token:</b> <code>{symbol_e}</code>\n"
+            f"<b>Score:</b> <b>{final_score}/100</b> ({self._e(str(grade))})\n\n"
             f"✅ Safety: {safety_score}/100\n"
             f"✅ Holders: {holders}\n"
             f"✅ Smart Money: {smart_money}\n\n"
-            f"*Address:*\n`{address}`\n\n"
-            f"[DexScreener](https://dexscreener.com/solana/{address})"
+            f"<b>Address:</b>\n<code>{addr_e}</code>\n\n"
+            f"<a href=\"{self._e(dex_url)}\">DexScreener</a>"
         )
 
         reply_markup = {
@@ -163,7 +186,42 @@ class TelegramBotController:
             ]
         }
 
-        await self.send_message(text, parse_mode="Markdown", reply_markup=reply_markup)
+        await self.send_message(text, parse_mode="HTML", reply_markup=reply_markup)
+        self._alerts_sent_count += 1
+
+    @property
+    def is_muted(self) -> bool:
+        if not self._mute_until:
+            return False
+        return datetime.now(timezone.utc) < self._mute_until
+
+    def mute_for(self, duration: timedelta) -> None:
+        self._mute_until = datetime.now(timezone.utc) + duration
+
+    def unmute(self) -> None:
+        self._mute_until = None
+
+    @staticmethod
+    def _e(s: str) -> str:
+        return html.escape(s or "")
+
+    @staticmethod
+    def _parse_duration(text: str) -> Optional[timedelta]:
+        """
+        Parse durations like: 10m, 2h, 1d
+        """
+        m = re.fullmatch(r"(\d{1,4})([mhd])", text.strip().lower())
+        if not m:
+            return None
+        value = int(m.group(1))
+        unit = m.group(2)
+        if unit == "m":
+            return timedelta(minutes=value)
+        if unit == "h":
+            return timedelta(hours=value)
+        if unit == "d":
+            return timedelta(days=value)
+        return None
 
     async def _poll_loop(self) -> None:
         assert self._client is not None
@@ -206,13 +264,15 @@ class TelegramBotController:
 
             if data.startswith("info:") and chat_id and isinstance(message_id, int):
                 addr = data.split("info:", 1)[1]
+                dex_url = f"https://dexscreener.com/solana/{addr}"
+                solscan_url = f"https://solscan.io/token/{addr}"
                 text = (
-                    f"📊 *More Info*\n\n"
-                    f"`{addr}`\n"
-                    f"[DexScreener](https://dexscreener.com/solana/{addr})\n"
-                    f"[Solscan](https://solscan.io/token/{addr})"
+                    "📊 <b>More Info</b>\n\n"
+                    f"<code>{self._e(addr)}</code>\n"
+                    f"<a href=\"{self._e(dex_url)}\">DexScreener</a>\n"
+                    f"<a href=\"{self._e(solscan_url)}\">Solscan</a>"
                 )
-                await self.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, parse_mode="Markdown")
+                await self.edit_message_text(chat_id=chat_id, message_id=message_id, text=text, parse_mode="HTML")
                 return
             return
 
@@ -229,13 +289,17 @@ class TelegramBotController:
         if not text:
             return
 
-        if text in ("/help", "help"):
+        if text in ("/help", "help", "/start"):
             await self.send_message(
-                "🤖 *SolanaHunter Commands*\n\n"
-                "/status - bot status\n"
-                "/check <token_address> - analyze a token now\n"
-                "/help - this message",
-                parse_mode="Markdown",
+                "<b>🤖 SolanaHunter Commands</b>\n\n"
+                "• <code>/status</code> — bot status\n"
+                "• <code>/check &lt;token_address&gt;</code> — analyze token now\n"
+                "• <code>/top</code> — show last top tokens\n"
+                "• <code>/alerts</code> — alert stats\n"
+                "• <code>/mute 30m</code> — mute alerts\n"
+                "• <code>/unmute</code> — resume alerts\n"
+                "• <code>/help</code> — this message",
+                parse_mode="HTML",
             )
             return
 
@@ -245,6 +309,46 @@ class TelegramBotController:
             except Exception as e:
                 status = f"Status unavailable: {e}"
             await self.send_message(status)
+            return
+
+        if text in ("/alerts", "alerts"):
+            muted = "YES" if self.is_muted else "NO"
+            until = self._mute_until.isoformat() if self._mute_until else "-"
+            await self.send_message(
+                "<b>🔔 Alerts</b>\n\n"
+                f"Muted: <b>{muted}</b>\n"
+                f"Mute until: <code>{self._e(until)}</code>\n"
+                f"Sent since start: <b>{self._alerts_sent_count}</b>",
+                parse_mode="HTML",
+            )
+            return
+
+        if text.startswith("/mute") or text.lower().startswith("mute "):
+            parts = text.split()
+            if len(parts) < 2:
+                await self.send_message("Usage: /mute 30m (m/h/d)", parse_mode="HTML")
+                return
+            dur = self._parse_duration(parts[1])
+            if not dur:
+                await self.send_message("Invalid duration. Use like: 10m, 2h, 1d", parse_mode="HTML")
+                return
+            self.mute_for(dur)
+            await self.send_message(
+                f"🔕 Muted for <b>{self._e(parts[1])}</b>.",
+                parse_mode="HTML",
+            )
+            return
+
+        if text in ("/unmute", "unmute"):
+            self.unmute()
+            await self.send_message("🔔 Unmuted.", parse_mode="HTML")
+            return
+
+        if text in ("/top", "top"):
+            if not self._top_provider:
+                await self.send_message("No recent tokens yet.", parse_mode="HTML")
+                return
+            await self.send_message(self._top_provider(10), parse_mode="HTML", disable_web_page_preview=True)
             return
 
         if text.startswith("/check") or text.lower().startswith("check "):
@@ -258,18 +362,24 @@ class TelegramBotController:
                 result = await self._check_provider(token_address)
             except Exception as e:
                 result = f"❌ Check failed: {e}"
-            await self.send_message(result, parse_mode="Markdown")
+            await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
             return
 
-        await self.send_message("Send /help for commands.")
+        await self.send_message("Send /help for commands.", parse_mode="HTML")
 
 
 def build_telegram_controller(
     status_provider: StatusProvider,
     check_provider: CheckProvider,
+    top_provider: Optional[TopProvider] = None,
 ) -> Optional[TelegramBotController]:
     if not settings.telegram_bot_token or not settings.telegram_chat_id:
         return None
     cfg = TelegramBotConfig(token=settings.telegram_bot_token, chat_id=settings.telegram_chat_id)
-    return TelegramBotController(cfg, status_provider=status_provider, check_provider=check_provider)
+    return TelegramBotController(
+        cfg,
+        status_provider=status_provider,
+        check_provider=check_provider,
+        top_provider=top_provider,
+    )
 

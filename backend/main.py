@@ -34,9 +34,12 @@ class SolanaHunter:
         self.holder_analyzer = HolderAnalyzer()
         self.scoring_engine = ScoringEngine(alert_threshold=settings.alert_threshold)
         self.discovery_engine = get_discovery_engine()
+        self._last_tokens: list[dict] = []
+        self._last_scan_ts: float | None = None
         self.telegram = build_telegram_controller(
             status_provider=self._telegram_status,
             check_provider=self._telegram_check_token,
+            top_provider=self._telegram_top_tokens,
         )
         self.running = False
         self.initial_discovery_done = False
@@ -176,8 +179,12 @@ class SolanaHunter:
                         
                         self.scanner.display_tokens(tokens)
                         logger.info(f"✅ Discovered {len(tokens)} new tokens")
+                        self._last_tokens = tokens[:]
+                        self._last_scan_ts = asyncio.get_event_loop().time()
                     else:
                         logger.info("⏳ No new tokens found")
+                        self._last_tokens = []
+                        self._last_scan_ts = asyncio.get_event_loop().time()
                     
                     # Wait for next scan
                     await asyncio.sleep(settings.scan_interval_seconds)
@@ -204,12 +211,31 @@ class SolanaHunter:
     # Telegram helpers
     # ---------------------------
     def _telegram_status(self) -> str:
+        last_scan = "never" if not self._last_scan_ts else "recently"
         return (
             "SolanaHunter is running.\n"
             f"Scan interval: {settings.scan_interval_seconds}s\n"
             f"Alert threshold: {settings.alert_threshold}\n"
             f"Smart wallets tracked: {get_smart_money_tracker().get_smart_wallet_count()}\n"
+            f"Last scan: {last_scan}\n"
+            f"Last tokens cached: {len(self._last_tokens)}\n"
         )
+
+    def _telegram_top_tokens(self, limit: int = 10) -> str:
+        if not self._last_tokens:
+            return "<b>No recent tokens yet.</b>"
+
+        # Sort by final_score if present
+        tokens = sorted(self._last_tokens, key=lambda t: int(t.get("final_score", t.get("safety_score", 0)) or 0), reverse=True)
+        rows = []
+        for t in tokens[:limit]:
+            sym = (t.get("symbol") or "N/A").replace("<", "").replace(">", "")
+            addr = t.get("address", "")
+            score = int(t.get("final_score", t.get("safety_score", 0)) or 0)
+            grade = t.get("grade", "")
+            rows.append(f"• <b>{sym}</b> — <b>{score}</b>/100 {grade} — <code>{addr[:8]}…</code>")
+
+        return "<b>🏆 Top Tokens (last scan)</b>\n\n" + "\n".join(rows)
 
     async def _telegram_check_token(self, token_address: str) -> str:
         """
@@ -236,16 +262,17 @@ class SolanaHunter:
             smart_money_count=smart_money_count,
         )
 
+        dex = f"https://dexscreener.com/solana/{token_address}"
         return (
-            f"📊 *Token Check*\n\n"
-            f"*Score:* *{token_score.final_score}/100* ({token_score.grade.value})\n"
-            f"*Category:* {token_score.category.value}\n\n"
+            "<b>📊 Token Check</b>\n\n"
+            f"<b>Score:</b> <b>{token_score.final_score}/100</b> ({token_score.grade.value})\n"
+            f"<b>Category:</b> {token_score.category.value}\n\n"
             f"Safety: {safety.safety_score}/100\n"
             f"Holders: {holders.holder_count} ({holders.holder_score}/20)\n"
             f"Top10%: {holders.top_10_percentage:.1f}%\n"
             f"Smart Money: {smart_money_count} ({token_score.smart_money_score}/15)\n\n"
-            f"`{token_address}`\n"
-            f"[DexScreener](https://dexscreener.com/solana/{token_address})"
+            f"<code>{token_address}</code>\n"
+            f"<a href=\"{dex}\">DexScreener</a>"
         )
 
 
