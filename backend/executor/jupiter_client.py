@@ -47,7 +47,7 @@ from solders.transaction import Transaction
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
 from solana.rpc.types import TxOpts
-from solana.transaction import Transaction as SolanaTransaction
+from solders.transaction import Transaction as SolanaTransaction
 import base64
 
 from executor.wallet_manager import WalletManager
