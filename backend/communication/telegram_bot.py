@@ -1287,12 +1287,14 @@ def build_telegram_controller(
     add_favorite_provider: Optional[AddFavoriteProvider] = None,
     remove_favorite_provider: Optional[RemoveFavoriteProvider] = None,
     export_provider: Optional[ExportProvider] = None,
-        filter_provider: Optional[FilterProvider] = None,
-        get_filters_provider: Optional[GetFiltersProvider] = None,
-        trends_provider: Optional[TrendsProvider] = None,
-        buy_provider: Optional[BuyProvider] = None,
-        sell_provider: Optional[SellProvider] = None,
-        portfolio_provider: Optional[PortfolioProvider] = None,
+    filter_provider: Optional[FilterProvider] = None,
+    get_filters_provider: Optional[GetFiltersProvider] = None,
+    trends_provider: Optional[TrendsProvider] = None,
+    buy_provider: Optional[BuyProvider] = None,
+    sell_provider: Optional[SellProvider] = None,
+    portfolio_provider: Optional[PortfolioProvider] = None,
+    profit_provider: Optional[ProfitProvider] = None,      # הוספנו את זה!
+    withdraw_provider: Optional[WithdrawProvider] = None,  # הוספנו את זה!
 ) -> Optional[TelegramBotController]:
     if not settings.telegram_bot_token or not settings.telegram_chat_id:
         return None
@@ -1327,5 +1329,7 @@ def build_telegram_controller(
         buy_provider=buy_provider,
         sell_provider=sell_provider,
         portfolio_provider=portfolio_provider,
+        profit_provider=profit_provider,       # מעבירים פנימה
+        withdraw_provider=withdraw_provider,   # מעבירים פנימה
     )
 
