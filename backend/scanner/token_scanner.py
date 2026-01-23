@@ -124,68 +124,86 @@ class TokenScanner:
             # שימוש ב-API החדש לפרופילים אחרונים
             url = "https://api.dexscreener.com/token-profiles/latest/v1"
             
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url)
+            response = await self.client.get(url)
+            
+            if response.status_code == 200:
+                data = response.json()
+                # מסנן רק טוקנים של סולנה
+                solana_tokens = [
+                    t for t in data 
+                    if t.get('chainId') == 'solana'
+                ]
+                logger.info(f"✅ DexScreener: Found {len(solana_tokens)} new Solana profiles")
                 
-                if response.status_code == 200:
-                    data = response.json()
-                    # מסנן רק טוקנים של סולנה
-                    solana_tokens = [
-                        t for t in data 
-                        if t.get('chainId') == 'solana'
-                    ]
-                    logger.info(f"✅ DexScreener: Found {len(solana_tokens)} new Solana profiles")
-                    
-                    # המר לפורמט הסטנדרטי
-                    cutoff_time = datetime.now() - timedelta(hours=hours)
-                    tokens = []
-                    
-                    for profile in solana_tokens:
-                        try:
-                            # בדוק אם הטוקן חדש מספיק
-                            created_at_str = profile.get('createdAt') or profile.get('created_at')
-                            if created_at_str:
-                                if isinstance(created_at_str, (int, float)):
-                                    created_at = datetime.fromtimestamp(created_at_str / 1000 if created_at_str > 1e10 else created_at_str)
-                                else:
-                                    created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                # המר לפורמט הסטנדרטי
+                cutoff_time = datetime.now() - timedelta(hours=hours)
+                tokens = []
+                
+                for profile in solana_tokens:
+                    try:
+                        # בדוק אם הטוקן חדש מספיק
+                        created_at_str = profile.get('createdAt') or profile.get('created_at')
+                        if created_at_str:
+                            if isinstance(created_at_str, (int, float)):
+                                created_at = datetime.fromtimestamp(created_at_str / 1000 if created_at_str > 1e10 else created_at_str)
                             else:
-                                # אם אין תאריך, נניח שהוא חדש
-                                created_at = datetime.now()
-                            
-                            if created_at < cutoff_time:
-                                continue
-                            
-                            # Extract token info
-                            token_address = profile.get('address') or profile.get('tokenAddress')
-                            if not token_address:
-                                continue
-                            
-                            token = {
-                                "address": token_address,
-                                "symbol": profile.get('symbol', 'UNKNOWN'),
-                                "name": profile.get('name', 'Unknown Token'),
-                                "decimals": profile.get('decimals', 9),
-                                "price_usd": float(profile.get('priceUsd', profile.get('price', 0))),
-                                "liquidity_usd": float(profile.get('liquidity', {}).get('usd', 0) if isinstance(profile.get('liquidity'), dict) else profile.get('liquidityUsd', 0))),
-                                "volume_24h": float(profile.get('volume24h', profile.get('volume', {}).get('h24', 0) if isinstance(profile.get('volume'), dict) else 0))),
-                                "price_change_24h": float(profile.get('priceChange24h', profile.get('priceChange', {}).get('h24', 0) if isinstance(profile.get('priceChange'), dict) else 0))),
-                                "created_at": created_at,
-                                "source": "dexscreener",
-                                "pair_address": profile.get('pairAddress', ''),
-                            }
-                            
-                            tokens.append(token)
-                            
-                        except (ValueError, TypeError, KeyError) as e:
-                            logger.debug(f"Skipping invalid token profile: {e}")
+                                created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                        else:
+                            # אם אין תאריך, נניח שהוא חדש
+                            created_at = datetime.now()
+                        
+                        if created_at < cutoff_time:
                             continue
-                    
-                    return tokens
-                else:
-                    logger.warning(f"⚠️ DexScreener API error: {response.status_code}")
-                    return []
-                    
+                        
+                        # Extract token info
+                        token_address = profile.get('address') or profile.get('tokenAddress')
+                        if not token_address:
+                            continue
+                        
+                        # Extract values safely
+                        liquidity = profile.get('liquidity', {})
+                        if isinstance(liquidity, dict):
+                            liquidity_usd = float(liquidity.get('usd', 0))
+                        else:
+                            liquidity_usd = float(profile.get('liquidityUsd', 0))
+                        
+                        volume = profile.get('volume', {})
+                        if isinstance(volume, dict):
+                            volume_24h = float(volume.get('h24', 0))
+                        else:
+                            volume_24h = float(profile.get('volume24h', 0))
+                        
+                        price_change = profile.get('priceChange', {})
+                        if isinstance(price_change, dict):
+                            price_change_24h = float(price_change.get('h24', 0))
+                        else:
+                            price_change_24h = float(profile.get('priceChange24h', 0))
+                        
+                        token = {
+                            "address": token_address,
+                            "symbol": profile.get('symbol', 'UNKNOWN'),
+                            "name": profile.get('name', 'Unknown Token'),
+                            "decimals": profile.get('decimals', 9),
+                            "price_usd": float(profile.get('priceUsd', profile.get('price', 0))),
+                            "liquidity_usd": liquidity_usd,
+                            "volume_24h": volume_24h,
+                            "price_change_24h": price_change_24h,
+                            "created_at": created_at,
+                            "source": "dexscreener",
+                            "pair_address": profile.get('pairAddress', ''),
+                        }
+                        
+                        tokens.append(token)
+                        
+                    except (ValueError, TypeError, KeyError) as e:
+                        logger.debug(f"Skipping invalid token profile: {e}")
+                        continue
+                
+                return tokens
+            else:
+                logger.warning(f"⚠️ DexScreener API error: {response.status_code}")
+                return []
+                
         except Exception as e:
             logger.error(f"❌ Error fetching from DexScreener: {e}")
             return []
