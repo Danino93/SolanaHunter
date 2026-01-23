@@ -31,10 +31,8 @@ import {
   DollarSign,
   Zap,
   BarChart3,
-  BarChart3,
   ArrowUpRight,
-  ArrowDownRight,
-  Zap
+  ArrowDownRight
 } from 'lucide-react'
 import { showToast } from '@/components/Toast'
 
