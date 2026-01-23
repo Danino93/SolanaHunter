@@ -83,6 +83,20 @@ class Settings(BaseSettings):
     # ============================================
     wallet_private_key: Optional[str] = Field(None, env="WALLET_PRIVATE_KEY")
     
+    # כתובת יעד להעברת רווחים (הארנק האישי שלך ב-Phantom)
+    # הבוט יעביר כסף לכתובת הזו רק אם יש יותר מ-WALLET_AUTO_TRANSFER_THRESHOLD
+    # או אם תבקש ידנית דרך /withdraw
+    wallet_destination_address: Optional[str] = Field(None, env="WALLET_DESTINATION_ADDRESS")
+    
+    # Reserve קבוע - תמיד נשאר בארנק הבוט (ל-fees, קניות, וכו')
+    # ברירת מחדל: 0.1 SOL
+    wallet_reserve_sol: float = Field(0.1, env="WALLET_RESERVE_SOL")
+    
+    # Auto-transfer threshold - רק אם יש יותר מ-X SOL, יעביר אוטומטית
+    # ברירת מחדל: 1.0 SOL (אם יש יותר מ-1 SOL, יעביר את העודף)
+    # אם 0 או לא מוגדר, לא יעביר אוטומטית (רק ידנית)
+    wallet_auto_transfer_threshold: float = Field(0.0, env="WALLET_AUTO_TRANSFER_THRESHOLD")
+    
     # ============================================
     # AI Services (Optional)
     # ============================================

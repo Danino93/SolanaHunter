@@ -42,7 +42,9 @@ from datetime import datetime, timezone
 
 from executor.jupiter_client import JupiterClient
 from executor.price_fetcher import PriceFetcher
+from executor.wallet_manager import WalletManager
 from executor.position_monitor import Position, PositionStatus
+from core.config import settings
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -104,6 +106,7 @@ class TakeProfitStrategy:
         self,
         jupiter_client: JupiterClient,
         price_fetcher: PriceFetcher,
+        wallet_manager: Optional[WalletManager] = None,
         check_interval_seconds: int = 60,  # בדיקה כל דקה
     ):
         """
@@ -112,10 +115,12 @@ class TakeProfitStrategy:
         Args:
             jupiter_client: JupiterClient לביצוע swaps
             price_fetcher: PriceFetcher לקבלת מחירים
+            wallet_manager: WalletManager להעברת SOL (אופציונלי)
             check_interval_seconds: תדירות בדיקה (ברירת מחדל: 60 שניות)
         """
         self.jupiter = jupiter_client
         self.price_fetcher = price_fetcher
+        self.wallet_manager = wallet_manager
         self.check_interval = check_interval_seconds
         
         logger.info("✅ TakeProfitStrategy initialized")
@@ -221,6 +226,30 @@ class TakeProfitStrategy:
                                 f"Transaction: https://solscan.io/tx/{tx_signature}"
                             )
                             
+                            # העבר SOL לכתובת היעד (אם מוגדר)
+                            if settings.wallet_destination_address and self.wallet_manager:
+                                try:
+                                    # חכה קצת שהטרנזקציה תאושר
+                                    await asyncio.sleep(2)
+                                    
+                                    # העבר את ה-SOL שהתקבל (פחות 0.01 SOL ל-fees)
+                                    transfer_tx = await self.wallet_manager.transfer_sol(
+                                        destination_address=settings.wallet_destination_address,
+                                        amount_sol="all",
+                                        keep_reserve=0.01,
+                                    )
+                                    
+                                    if transfer_tx:
+                                        logger.info(
+                                            f"💰 Transferred SOL to destination address. "
+                                            f"Transaction: https://solscan.io/tx/{transfer_tx}"
+                                        )
+                                except Exception as e:
+                                    logger.error(
+                                        f"❌ Error transferring SOL: {e}",
+                                        exc_info=True
+                                    )
+                            
                             # התראה
                             if alert_callback:
                                 await alert_callback(
@@ -263,6 +292,26 @@ class TakeProfitStrategy:
                             result["total_sold_pct"] = 1.0
                             remaining_amount = 0
                             result["final_status"] = "trailing_stop_triggered"
+                            
+                            # העבר SOL לכתובת היעד (אם מוגדר)
+                            if settings.wallet_destination_address and self.wallet_manager:
+                                try:
+                                    await asyncio.sleep(2)
+                                    transfer_tx = await self.wallet_manager.transfer_sol(
+                                        destination_address=settings.wallet_destination_address,
+                                        amount_sol="all",
+                                        keep_reserve=0.01,
+                                    )
+                                    if transfer_tx:
+                                        logger.info(
+                                            f"💰 Transferred SOL to destination address. "
+                                            f"Transaction: https://solscan.io/tx/{transfer_tx}"
+                                        )
+                                except Exception as e:
+                                    logger.error(
+                                        f"❌ Error transferring SOL: {e}",
+                                        exc_info=True
+                                    )
                             
                             logger.info(
                                 f"✅ All sold via trailing stop! "

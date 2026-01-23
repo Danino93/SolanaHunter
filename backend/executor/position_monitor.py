@@ -39,10 +39,12 @@ from typing import Optional, Dict, Any, Callable, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
+import asyncio
 
 from executor.jupiter_client import JupiterClient
 from executor.wallet_manager import WalletManager
 from executor.price_fetcher import PriceFetcher
+from core.config import settings
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -65,6 +67,11 @@ class Position:
     entry_price: float  # מחיר כניסה ממוצע (מ-DCA)
     amount_tokens: int  # כמות טוקנים (ב-minimum units)
     entry_timestamp: datetime
+    entry_value_sol: float = 0.0  # ערך כניסה ב-SOL (למעקב רווחים)
+    exit_price: Optional[float] = None  # מחיר יציאה (אם נמכר)
+    exit_value_sol: Optional[float] = None  # ערך יציאה ב-SOL
+    profit_sol: Optional[float] = None  # רווח/הפסד ב-SOL
+    profit_pct: Optional[float] = None  # רווח/הפסד באחוזים
     stop_loss_pct: float = 0.15  # 15% stop loss
     time_limit_days: int = 7  # 7 ימים מקסימום
     status: PositionStatus = PositionStatus.ACTIVE
@@ -74,6 +81,25 @@ class Position:
         """קבל גיל הפוזיציה בימים"""
         age = datetime.now(timezone.utc) - self.entry_timestamp
         return age.total_seconds() / 86400  # Convert to days
+    
+    def calculate_profit(self, exit_value_sol: float) -> Tuple[float, float]:
+        """
+        חשב רווח/הפסד
+        
+        Returns:
+            Tuple[profit_sol, profit_pct]
+        """
+        if self.entry_value_sol == 0:
+            return 0.0, 0.0
+        
+        profit_sol = exit_value_sol - self.entry_value_sol
+        profit_pct = (profit_sol / self.entry_value_sol) * 100
+        
+        self.exit_value_sol = exit_value_sol
+        self.profit_sol = profit_sol
+        self.profit_pct = profit_pct
+        
+        return profit_sol, profit_pct
 
 
 class PositionMonitor:
@@ -313,6 +339,23 @@ class PositionMonitor:
                 logger.error(f"❌ Failed to sell {position.token_symbol}")
                 return None
             
+            # חכה קצת שהטרנזקציה תאושר
+            await asyncio.sleep(2)
+            
+            # קבל balance נוכחי (לחישוב רווח)
+            current_balance = await self.wallet_manager.get_balance()
+            
+            # חשב רווח/הפסד
+            # נניח שה-exit_value הוא ה-balance הנוכחי (לאחר המכירה)
+            # זה לא מדויק 100%, אבל זה קירוב טוב
+            if position.entry_value_sol > 0:
+                exit_value_sol = current_balance - (position.entry_value_sol if position.entry_value_sol > 0 else 0)
+                profit_sol, profit_pct = position.calculate_profit(exit_value_sol)
+                
+                logger.info(
+                    f"📊 Profit/Loss: {profit_sol:+.4f} SOL ({profit_pct:+.2f}%)"
+                )
+            
             position.status = reason
             position.transactions.append(tx_signature)
             
@@ -320,6 +363,9 @@ class PositionMonitor:
                 f"✅ Position sold: {position.token_symbol}, "
                 f"Transaction: https://solscan.io/tx/{tx_signature}"
             )
+            
+            # בדוק אם צריך להעביר כסף (רק אם יש threshold)
+            await self._check_and_transfer_if_needed()
             
             # שלח התראה
             if self.alert_callback:
@@ -379,3 +425,153 @@ class PositionMonitor:
         await asyncio.gather(*self.monitoring_tasks.values(), return_exceptions=True)
         
         logger.info("⏹️ All monitoring stopped")
+    
+    async def _check_and_transfer_if_needed(self) -> Optional[str]:
+        """
+        בדוק אם צריך להעביר כסף לכתובת היעד
+        
+        העבר רק אם:
+        1. יש כתובת יעד מוגדרת
+        2. יש threshold מוגדר (> 0)
+        3. ה-balance גבוה מה-threshold + reserve
+        
+        Returns:
+            Transaction signature אם העביר, אחרת None
+        """
+        if not settings.wallet_destination_address:
+            return None
+        
+        if settings.wallet_auto_transfer_threshold <= 0:
+            # לא מוגדר threshold - לא מעביר אוטומטית
+            return None
+        
+        try:
+            # קבל balance נוכחי
+            current_balance = await self.wallet_manager.get_balance()
+            
+            # חשב את הסכום המינימלי (threshold + reserve)
+            min_balance = settings.wallet_auto_transfer_threshold + settings.wallet_reserve_sol
+            
+            # בדוק אם יש יותר מהמינימום
+            if current_balance <= min_balance:
+                logger.debug(
+                    f"💰 Balance ({current_balance:.4f} SOL) <= "
+                    f"threshold ({min_balance:.4f} SOL), not transferring"
+                )
+                return None
+            
+            # חשב כמה להעביר (הכל פחות reserve)
+            amount_to_transfer = current_balance - settings.wallet_reserve_sol
+            
+            logger.info(
+                f"💰 Auto-transfer: {amount_to_transfer:.4f} SOL "
+                f"(balance: {current_balance:.4f}, reserve: {settings.wallet_reserve_sol})"
+            )
+            
+            # העבר את הכסף
+            transfer_tx = await self.wallet_manager.transfer_sol(
+                destination_address=settings.wallet_destination_address,
+                amount_sol=amount_to_transfer,
+                keep_reserve=settings.wallet_reserve_sol,
+            )
+            
+            if transfer_tx:
+                logger.info(
+                    f"✅ Auto-transferred {amount_to_transfer:.4f} SOL to destination. "
+                    f"Transaction: https://solscan.io/tx/{transfer_tx}"
+                )
+                return transfer_tx
+            else:
+                logger.warning("⚠️ Failed to auto-transfer SOL")
+                return None
+                
+        except Exception as e:
+            logger.error(
+                f"❌ Error checking/transferring: {e}",
+                exc_info=True
+            )
+            return None
+    
+    async def transfer_manually(self, amount_sol: Optional[float] = None) -> Optional[str]:
+        """
+        העבר כסף ידנית לכתובת היעד
+        
+        Args:
+            amount_sol: כמות SOL להעביר (אם None, מעביר הכל פחות reserve)
+        
+        Returns:
+            Transaction signature או None
+        """
+        if not settings.wallet_destination_address:
+            return None
+        
+        try:
+            current_balance = await self.wallet_manager.get_balance()
+            
+            if amount_sol is None:
+                # העבר הכל פחות reserve
+                amount_to_transfer = max(0, current_balance - settings.wallet_reserve_sol)
+            else:
+                # בדוק שיש מספיק כסף
+                if current_balance < amount_sol + settings.wallet_reserve_sol:
+                    logger.warning(
+                        f"⚠️ Not enough balance: {current_balance:.4f} SOL, "
+                        f"need: {amount_sol + settings.wallet_reserve_sol:.4f} SOL"
+                    )
+                    return None
+                amount_to_transfer = amount_sol
+            
+            if amount_to_transfer <= 0:
+                logger.warning("⚠️ Nothing to transfer")
+                return None
+            
+            transfer_tx = await self.wallet_manager.transfer_sol(
+                destination_address=settings.wallet_destination_address,
+                amount_sol=amount_to_transfer,
+                keep_reserve=settings.wallet_reserve_sol,
+            )
+            
+            if transfer_tx:
+                logger.info(
+                    f"✅ Manually transferred {amount_to_transfer:.4f} SOL. "
+                    f"Transaction: https://solscan.io/tx/{transfer_tx}"
+                )
+                return transfer_tx
+            else:
+                logger.warning("⚠️ Failed to transfer SOL")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Error transferring: {e}", exc_info=True)
+            return None
+    
+    def get_profit_stats(self) -> Dict[str, Any]:
+        """
+        קבל סטטיסטיקות רווחים/הפסדים
+        
+        Returns:
+            Dict עם total_profit, total_trades, win_rate, וכו'
+        """
+        all_positions = self.get_all_positions()
+        
+        closed_positions = [p for p in all_positions if p.status != PositionStatus.ACTIVE]
+        
+        total_profit_sol = sum(p.profit_sol or 0 for p in closed_positions)
+        total_trades = len(closed_positions)
+        profitable_trades = len([p for p in closed_positions if p.profit_sol and p.profit_sol > 0])
+        losing_trades = len([p for p in closed_positions if p.profit_sol and p.profit_sol < 0])
+        
+        win_rate = (profitable_trades / total_trades * 100) if total_trades > 0 else 0
+        
+        biggest_win = max([p.profit_sol or 0 for p in closed_positions], default=0)
+        biggest_loss = min([p.profit_sol or 0 for p in closed_positions], default=0)
+        
+        return {
+            "total_profit_sol": total_profit_sol,
+            "total_trades": total_trades,
+            "profitable_trades": profitable_trades,
+            "losing_trades": losing_trades,
+            "win_rate": win_rate,
+            "biggest_win": biggest_win,
+            "biggest_loss": biggest_loss,
+        }

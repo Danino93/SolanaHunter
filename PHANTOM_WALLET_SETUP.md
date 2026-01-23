@@ -65,14 +65,41 @@
 
 ## 📤 שלב 6: ייצוא Private Key
 
+**⚠️ חשוב:** ה-12 מילים (Secret Recovery Phrase) זה **לא** ה-Private Key! צריך לייצא את ה-Private Key בנפרד!
+
+### איפה למצוא ב-Phantom:
+
+**דרך 1 (הכי נפוץ):**
 1. **פתח את הארנק החדש** ב-Phantom
 2. לחץ על **⚙️ Settings** (הגדרות) - האייקון התחתון
 3. בחר **"Security & Privacy"** או **"אבטחה ופרטיות"**
 4. בחר **"Export Private Key"** או **"ייצא מפתח פרטי"**
-5. הזן את הסיסמה של הארנק
-6. **העתק את ה-Private Key** - זה מחרוזת ארוכה של תווים (Base58)
-   - למשל: `5KJvsngHeMoi...` (ארוך מאוד!)
+
+**דרך 2 (אם לא מוצא):**
+1. לחץ על **שם הארנק** (בחלק העליון)
+2. בחר **"Advanced"** או **"מתקדם"**
+3. בחר **"Export Private Key"** או **"ייצא מפתח פרטי"**
+
+**דרך 3 (אם עדיין לא מוצא):**
+1. לחץ על **⚙️ Settings**
+2. גלול למטה
+3. חפש **"Show Private Key"** או **"הצג מפתח פרטי"**
+
+### איך לייצא:
+1. **תבקש ממך להזין סיסמה:**
+   - הזן את הסיסמה של הארנק (6 ספרות או יותר)
+   - לחץ **"Confirm"** או **"אישור"**
+
+2. **Phantom יציג את ה-Private Key:**
+   - זה מחרוזת ארוכה של תווים (Base58)
+   - למשל: `5KJvsngHeMoi...` (ארוך מאוד, 88 תווים בערך!)
    - **⚠️ זה רגיש מאוד - אל תשתף עם אף אחד!**
+
+3. **העתק את ה-Private Key:**
+   - לחץ על **"Copy"** או **"העתק"**
+   - או העתק ידנית (הכל!)
+
+**💡 טיפ:** אם אתה לא מוצא, ראה מדריך מפורט: `PHANTOM_EXPORT_PRIVATE_KEY.md`
 
 ---
 

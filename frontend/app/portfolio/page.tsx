@@ -180,9 +180,39 @@ export default function PortfolioPage() {
           {/* Positions List */}
           <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl border border-slate-200/50 dark:border-slate-700 shadow-2xl overflow-hidden">
             {loading ? (
-              <div className="p-12 text-center">
-                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
-                <p className="text-slate-600 dark:text-slate-400">טוען פוזיציות...</p>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-100/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">טוקן</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">כמות</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">מחיר כניסה</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">מחיר נוכחי</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">P&L</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded w-24" />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded w-20" />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded w-24" />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded w-24" />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-slate-300 dark:bg-slate-700 rounded w-20" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : positions.length === 0 ? (
               <div className="p-12 text-center">

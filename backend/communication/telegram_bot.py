@@ -107,6 +107,8 @@ TrendsProvider = Callable[[], str]
 BuyProvider = Callable[[str, float], Awaitable[str]]  # token_mint, amount_sol
 SellProvider = Callable[[str], Awaitable[str]]  # token_mint
 PortfolioProvider = Callable[[], Awaitable[str]]  # portfolio status
+ProfitProvider = Callable[[], Awaitable[str]]  # profit stats
+WithdrawProvider = Callable[[Optional[float]], Awaitable[str]]  # withdraw amount (optional)
 
 
 @dataclass
@@ -147,6 +149,8 @@ class TelegramBotController:
         buy_provider: Optional[BuyProvider] = None,
         sell_provider: Optional[SellProvider] = None,
         portfolio_provider: Optional[PortfolioProvider] = None,
+        profit_provider: Optional[ProfitProvider] = None,
+        withdraw_provider: Optional[WithdrawProvider] = None,
     ):
         self.config = config
         self._status_provider = status_provider
@@ -177,6 +181,8 @@ class TelegramBotController:
         self._buy_provider = buy_provider
         self._sell_provider = sell_provider
         self._portfolio_provider = portfolio_provider
+        self._profit_provider = profit_provider
+        self._withdraw_provider = withdraw_provider
 
         self._client: Optional[httpx.AsyncClient] = None
         self._task: Optional[asyncio.Task] = None
@@ -1183,6 +1189,53 @@ class TelegramBotController:
                 await self.send_message("אופס, Portfolio לא זמין כרגע 😅", parse_mode="HTML")
             return
         
+        # /profit או "רווח" - הצגת רווחים/הפסדים
+        if text in ("/profit", "profit", "רווח", "💰 רווח", "/stats", "stats", "סטטיסטיקות"):
+            if self._profit_provider:
+                try:
+                    result = await self._profit_provider()
+                    await self.send_message(result, parse_mode="HTML")
+                except Exception as e:
+                    await self.send_message(
+                        f"אופס, שגיאה בהצגת רווחים: {self._e(str(e))} 😅",
+                        parse_mode="HTML"
+                    )
+            else:
+                await self.send_message("אופס, Profit stats לא זמין כרגע 😅", parse_mode="HTML")
+            return
+        
+        # /withdraw או "הוצא" - העברת כסף לכתובת היעד
+        if text.startswith("/withdraw") or normalized.startswith("הוצא ") or normalized.startswith("withdraw "):
+            parts = text.split(maxsplit=1)
+            amount_sol = None
+            if len(parts) >= 2:
+                try:
+                    amount_sol = float(parts[1])
+                except ValueError:
+                    await self.send_message(
+                        "שימוש: <code>/withdraw [amount]</code>\n"
+                        "דוגמה: <code>/withdraw 0.5</code> (אם לא מצוין, מעביר הכל פחות reserve)",
+                        parse_mode="HTML"
+                    )
+                    return
+            
+            if self._withdraw_provider:
+                await self.send_message(
+                    "🔄 מעביר כסף...",
+                    parse_mode="HTML"
+                )
+                try:
+                    result = await self._withdraw_provider(amount_sol)
+                    await self.send_message(result, parse_mode="HTML")
+                except Exception as e:
+                    await self.send_message(
+                        f"אופס, ההעברה נכשלה 😅\n{self._e(str(e))}",
+                        parse_mode="HTML"
+                    )
+            else:
+                await self.send_message("אופס, Withdraw לא זמין כרגע 😅", parse_mode="HTML")
+            return
+        
         # טיפול בסכום מותאם (אחרי buy_custom)
         # אם ההודעה היא מספר, זה יכול להיות סכום לקנייה
         try:
@@ -1202,6 +1255,8 @@ class TelegramBotController:
             "• <code>קנה &lt;amount&gt; &lt;address&gt;</code> / <code>/buy</code>\n"
             "• <code>מכור &lt;address&gt;</code> / <code>/sell</code>\n"
             "• <code>תיק</code> / <code>/portfolio</code>\n"
+            "• <code>רווח</code> / <code>/profit</code>\n"
+            "• <code>הוצא [amount]</code> / <code>/withdraw</code>\n"
             "• <code>השתק 30ד</code> / <code>/mute 30m</code>\n"
             "• <code>תפריט</code> / <code>/menu</code>\n"
             "• <code>עזרה</code> / <code>/help</code>",

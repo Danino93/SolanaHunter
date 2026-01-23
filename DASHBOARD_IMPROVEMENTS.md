@@ -11,6 +11,30 @@
    - כל הטקסטים בעברית
    - "Command Center" → "מרכז בקרה"
 
+2. **Token Detail Modal** ✅
+   - קומפוננטה `TokenDetailModal.tsx` קיימת
+   - מוצגת בלחיצה על טוקן
+   - כוללת פרטים מלאים, charts, quick actions
+
+3. **Toast Notifications** ✅
+   - קומפוננטה `Toast.tsx` קיימת
+   - `ToastContainer` ב-`layout.tsx`
+   - `showToast()` בשימוש בדפים
+
+4. **Dark Mode Toggle** ✅
+   - קומפוננטה `ThemeToggle.tsx` קיימת
+   - מופיע ב-Sidebar
+   - שמירת העדפה ב-localStorage
+
+5. **Mobile Menu** ✅
+   - Hamburger menu ב-Sidebar
+   - מתקפל במובייל
+   - Overlay ו-animations
+
+6. **Loading States** ✅
+   - Loading spinners בדפים
+   - `loading` state management
+
 ---
 
 ## 🎯 שיפורים מומלצים
@@ -18,19 +42,19 @@
 ### **1. UX/UI Improvements** 🔥
 
 #### **A. Loading States & Feedback**
+- [x] **Toast Notifications** - התראות יפות (success/error/info) ✅
 - [ ] **Skeleton Loaders** - במקום spinners, skeleton screens יפים יותר
-- [ ] **Toast Notifications** - התראות יפות (success/error/info)
 - [ ] **Progress Indicators** - progress bars לפעולות ארוכות
 - [ ] **Optimistic Updates** - עדכון UI מיד, עדכון backend ברקע
 
 #### **B. Responsive Design**
-- [ ] **Mobile Menu** - Sidebar מתקפל במובייל עם hamburger menu
+- [x] **Mobile Menu** - Sidebar מתקפל במובייל עם hamburger menu ✅
 - [ ] **Touch Gestures** - swipe actions בטבלה (מובייל)
 - [ ] **Better Mobile Tables** - cards במקום טבלה במובייל
 - [ ] **Sticky Headers** - headers נשארים למעלה בגלילה
 
 #### **C. Visual Enhancements**
-- [ ] **Dark Mode Toggle** - כפתור להחלפה בין light/dark
+- [x] **Dark Mode Toggle** - כפתור להחלפה בין light/dark ✅
 - [ ] **Theme Customization** - בחירת צבעים אישית
 - [ ] **Animations** - אנימציות חלקות יותר (framer-motion)
 - [ ] **Micro-interactions** - hover effects, click feedback
@@ -41,7 +65,7 @@
 ### **2. Features חסרים** 🔥
 
 #### **A. Dashboard Page**
-- [ ] **Token Detail Modal** - קליק על טוקן → modal עם פרטים מלאים
+- [x] **Token Detail Modal** - קליק על טוקן → modal עם פרטים מלאים ✅
 - [ ] **Bulk Actions** - בחירה מרובה + פעולות (favorite, watch, compare)
 - [ ] **Export Data** - ייצוא ל-CSV/JSON/Excel
 - [ ] **Column Customization** - בחירת עמודות להצגה
@@ -167,24 +191,32 @@
 
 ## 🎯 עדיפויות (Top 10)
 
-1. **Toast Notifications** - חובה ל-UX טוב
-2. **Mobile Menu** - חשוב ל-responsive
-3. **Token Detail Modal** - חובה ל-functionality
-4. **Dark Mode Toggle** - חובה ל-UX
-5. **Loading States** - חובה ל-UX
-6. **Export Data** - חשוב ל-functionality
-7. **Real Charts** - חשוב ל-Analytics
-8. **Live Logs** - חשוב ל-Bot Control
-9. **Quick Actions** - חשוב ל-UX
-10. **Settings Validation** - חשוב ל-reliability
+### ✅ כבר בוצע:
+1. ✅ **Toast Notifications** - חובה ל-UX טוב
+2. ✅ **Mobile Menu** - חשוב ל-responsive
+3. ✅ **Token Detail Modal** - חובה ל-functionality
+4. ✅ **Dark Mode Toggle** - חובה ל-UX
+5. ✅ **Loading States** - חובה ל-UX
+
+### ✅ בוצע עכשיו:
+6. ✅ **Skeleton Loaders** - שיפור UX (במקום spinners)
+7. ✅ **Export Data** - ייצוא ל-CSV/JSON
+8. ✅ **Quick Actions** - כפתורים מהירים בטבלה (Buy, Watch, Favorite)
+
+### 🔥 עדיפויות הבאות:
+9. **Real Charts** - חשוב ל-Analytics
+10. **Live Logs** - חשוב ל-Bot Control
+11. **Settings Validation** - חשוב ל-reliability
+12. **Bulk Actions** - בחירה מרובה + פעולות
 
 ---
 
 ## 📝 הערות
 
-- רוב השיפורים הם UX/UI improvements
+- ✅ **5 תכונות חשובות כבר בוצעו!** (Toast, Mobile Menu, Token Modal, Dark Mode, Loading)
+- רוב השיפורים הנותרים הם UX/UI improvements
 - חלק מהתכונות דורשות backend work (Day 15+)
-- חלק מהתכונות אפשר להוסיף עכשיו (Toast, Dark Mode, etc.)
+- חלק מהתכונות אפשר להוסיף עכשיו (Skeleton Loaders, Export Data, Quick Actions)
 
 ---
 

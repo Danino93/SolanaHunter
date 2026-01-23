@@ -113,6 +113,7 @@ class SolanaHunter:
                 self.take_profit_strategy = TakeProfitStrategy(
                     jupiter_client=self.jupiter_client,
                     price_fetcher=self.price_fetcher,
+                    wallet_manager=self.wallet_manager,
                 )
                 logger.info("✅ Trading components initialized")
             except Exception as e:
@@ -147,6 +148,8 @@ class SolanaHunter:
             buy_provider=self._telegram_buy if self.dca_strategy else None,
             sell_provider=self._telegram_sell if self.position_monitor else None,
             portfolio_provider=self._telegram_portfolio if self.position_monitor else None,
+            profit_provider=self._telegram_profit if self.position_monitor else None,
+            withdraw_provider=self._telegram_withdraw if self.position_monitor else None,
         )
         self.running = False
         self.initial_discovery_done = False
@@ -896,6 +899,123 @@ class SolanaHunter:
                 f"<b>💼 תיק ({len(positions)} פוזיציות)</b>\n\n" +
                 "\n\n".join(rows)
             )
+        
+        except Exception as e:
+            logger.error(f"❌ Error in portfolio: {e}", exc_info=True)
+            return f"אופס, שגיאה בטעינת תיק 😅\n{str(e)}"
+    
+    async def _telegram_profit(self) -> str:
+        """
+        💰 פקודת /profit - הצגת רווחים/הפסדים
+        
+        Returns:
+            הודעה עם סטטיסטיקות רווחים
+        """
+        if not self.position_monitor:
+            return "אופס, Trading לא זמין כרגע 😅\nודא ש-WALLET_PRIVATE_KEY מוגדר ב-.env"
+        
+        try:
+            stats = self.position_monitor.get_profit_stats()
+            
+            # קבל balance נוכחי
+            if self.wallet_manager:
+                current_balance = await self.wallet_manager.get_balance()
+            else:
+                current_balance = 0.0
+            
+            profit_emoji = "📈" if stats["total_profit_sol"] >= 0 else "📉"
+            win_rate_emoji = "🟢" if stats["win_rate"] >= 50 else "🔴"
+            
+            message = (
+                f"<b>{profit_emoji} רווחים/הפסדים</b>\n\n"
+                f"<b>סה\"כ רווח:</b> {stats['total_profit_sol']:+.4f} SOL\n"
+                f"<b>Balance נוכחי:</b> {current_balance:.4f} SOL\n\n"
+                f"<b>📊 סטטיסטיקות:</b>\n"
+                f"• סה\"כ עסקאות: {stats['total_trades']}\n"
+                f"• {win_rate_emoji} Win Rate: {stats['win_rate']:.1f}%\n"
+                f"• רווחיות: {stats['profitable_trades']}\n"
+                f"• הפסדיות: {stats['losing_trades']}\n\n"
+            )
+            
+            if stats['biggest_win'] > 0:
+                message += f"<b>🏆 רווח מקסימלי:</b> +{stats['biggest_win']:.4f} SOL\n"
+            
+            if stats['biggest_loss'] < 0:
+                message += f"<b>⚠️ הפסד מקסימלי:</b> {stats['biggest_loss']:.4f} SOL\n"
+            
+            return message
+        
+        except Exception as e:
+            logger.error(f"❌ Error in profit: {e}", exc_info=True)
+            return f"אופס, שגיאה בחישוב רווחים 😅\n{str(e)}"
+    
+    async def _telegram_withdraw(self, amount_sol: Optional[float] = None) -> str:
+        """
+        💸 פקודת /withdraw - העברת כסף לכתובת היעד
+        
+        Args:
+            amount_sol: כמות SOL להעביר (אם None, מעביר הכל פחות reserve)
+        
+        Returns:
+            הודעה עם תוצאות ההעברה
+        """
+        if not self.position_monitor:
+            return "אופס, Trading לא זמין כרגע 😅\nודא ש-WALLET_PRIVATE_KEY מוגדר ב-.env"
+        
+        if not settings.wallet_destination_address:
+            return (
+                "אופס, אין כתובת יעד מוגדרת! 😅\n\n"
+                "הוסף ל-.env:\n"
+                "<code>WALLET_DESTINATION_ADDRESS=YourPhantomAddress</code>"
+            )
+        
+        try:
+            # קבל balance נוכחי
+            if self.wallet_manager:
+                current_balance = await self.wallet_manager.get_balance()
+            else:
+                return "אופס, Wallet לא זמין 😅"
+            
+            # בדוק שיש מספיק כסף
+            min_balance = settings.wallet_reserve_sol
+            available = current_balance - min_balance
+            
+            if available <= 0:
+                return (
+                    f"אופס, אין מספיק כסף להעברה! 😅\n\n"
+                    f"Balance: {current_balance:.4f} SOL\n"
+                    f"Reserve: {min_balance:.4f} SOL\n"
+                    f"זמין: {available:.4f} SOL"
+                )
+            
+            # אם לא צוין סכום, העבר הכל פחות reserve
+            if amount_sol is None:
+                amount_sol = available
+            
+            # בדוק שהסכום לא גדול מדי
+            if amount_sol > available:
+                return (
+                    f"אופס, הסכום גדול מדי! 😅\n\n"
+                    f"זמין: {available:.4f} SOL\n"
+                    f"נדרש: {amount_sol:.4f} SOL"
+                )
+            
+            # בצע העברה
+            transfer_tx = await self.position_monitor.transfer_manually(amount_sol)
+            
+            if transfer_tx:
+                return (
+                    f"✅ <b>העברה הושלמה!</b>\n\n"
+                    f"<b>סכום:</b> {amount_sol:.4f} SOL\n"
+                    f"<b>Balance נותר:</b> {current_balance - amount_sol:.4f} SOL\n"
+                    f"<b>טרנזקציה:</b> <a href=\"https://solscan.io/tx/{transfer_tx}\">{transfer_tx[:8]}...</a>"
+                )
+            else:
+                return "אופס, ההעברה נכשלה 😅"
+        
+        except Exception as e:
+            logger.error(f"❌ Error in withdraw: {e}", exc_info=True)
+            return f"אופס, שגיאה בהעברה 😅\n{str(e)}"
         
         except Exception as e:
             logger.error(f"❌ Error in portfolio: {e}", exc_info=True)

@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isAuthenticated } from '@/lib/auth'
 import DashboardLayout from '@/components/DashboardLayout'
+import { TableSkeleton, TableRowSkeleton } from '@/components/SkeletonLoader'
 import { 
   TrendingUp, 
   TrendingDown,
@@ -28,6 +29,8 @@ import {
   Sparkles,
   Clock,
   DollarSign,
+  Zap,
+  BarChart3,
   BarChart3,
   ArrowUpRight,
   ArrowDownRight,
@@ -259,9 +262,24 @@ export default function MarketsPage() {
           {/* Tokens Table */}
           <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl border border-slate-200/50 dark:border-slate-700 shadow-2xl overflow-hidden">
             {loading ? (
-              <div className="p-12 text-center">
-                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
-                <p className="text-slate-600 dark:text-slate-400">טוען מטבעות...</p>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-100/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">טוקן</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">מחיר</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">שינוי 24h</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">נפח 24h</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">נזילות</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">פעולות</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <TableRowSkeleton key={i} />
+                    ))}
+                  </tbody>
+                </table>
               </div>
             ) : displayTokens.length === 0 ? (
               <div className="p-12 text-center">

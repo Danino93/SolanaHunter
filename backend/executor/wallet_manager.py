@@ -37,9 +37,12 @@ import asyncio
 from typing import Optional
 from solders.keypair import Keypair
 from solders.pubkey import Pubkey
+from solders.system_program import transfer, TransferParams
+from solders.transaction import Transaction
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
-from solana.rpc.types import TokenAccountOpts
+from solana.rpc.types import TokenAccountOpts, TxOpts
+from solana.transaction import Transaction as SolanaTransaction
 
 from core.config import settings
 from utils.logger import get_logger
@@ -203,6 +206,109 @@ class WalletManager:
         except Exception as e:
             logger.error(f"❌ Failed to get token balance for {mint}: {e}")
             return 0.0
+    
+    async def transfer_sol(
+        self,
+        destination_address: str,
+        amount_sol: float,
+        keep_reserve: float = 0.01,  # שמור 0.01 SOL ל-fees
+    ) -> Optional[str]:
+        """
+        העבר SOL לכתובת יעד
+        
+        Args:
+            destination_address: כתובת היעד (Base58)
+            amount_sol: כמות SOL להעביר
+            keep_reserve: כמות SOL לשמור בארנק (ל-fees)
+        
+        Returns:
+            Transaction signature או None אם נכשל
+        
+        ⚠️ הערה: אם amount_sol הוא "all", יעביר את כל ה-balance פחות ה-reserve
+        """
+        try:
+            # בדוק balance נוכחי
+            current_balance = await self.get_balance()
+            
+            if amount_sol == "all" or amount_sol is None:
+                # העבר הכל פחות reserve
+                amount_to_transfer = max(0, current_balance - keep_reserve)
+            else:
+                amount_to_transfer = amount_sol
+            
+            # בדוק שיש מספיק כסף
+            if amount_to_transfer <= 0:
+                logger.warning("⚠️ אין מספיק SOL להעברה")
+                return None
+            
+            if current_balance < amount_to_transfer + keep_reserve:
+                logger.warning(
+                    f"⚠️ Balance לא מספיק: {current_balance} SOL, "
+                    f"נדרש: {amount_to_transfer + keep_reserve} SOL"
+                )
+                return None
+            
+            # המר ל-lamports
+            amount_lamports = int(amount_to_transfer * 1e9)
+            
+            # צור כתובת יעד
+            dest_pubkey = Pubkey.from_string(destination_address)
+            
+            # צור transfer instruction
+            transfer_ix = transfer(
+                TransferParams(
+                    from_pubkey=self.pubkey,
+                    to_pubkey=dest_pubkey,
+                    lamports=amount_lamports,
+                )
+            )
+            
+            # צור transaction
+            transaction = Transaction()
+            transaction.add(transfer_ix)
+            
+            # קבל recent blockhash
+            recent_blockhash_resp = await self.rpc_client.get_latest_blockhash()
+            if not recent_blockhash_resp.value:
+                logger.error("❌ Failed to get recent blockhash")
+                return None
+            
+            transaction.recent_blockhash = recent_blockhash_resp.value.blockhash
+            
+            # חתום על ה-transaction
+            transaction.sign([self.keypair])
+            
+            # שלח את ה-transaction
+            logger.info(
+                f"📤 Transferring {amount_to_transfer} SOL to {destination_address[:8]}..."
+            )
+            
+            opts = TxOpts(
+                skip_preflight=False,
+                preflight_commitment=Confirmed,
+                max_retries=3,
+            )
+            
+            result = await self.rpc_client.send_transaction(
+                transaction,
+                self.keypair,
+                opts=opts
+            )
+            
+            if result.value:
+                tx_signature = str(result.value)
+                logger.info(
+                    f"✅ Transfer successful! "
+                    f"Signature: https://solscan.io/tx/{tx_signature}"
+                )
+                return tx_signature
+            else:
+                logger.error("❌ Transfer failed - no signature")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to transfer SOL: {e}", exc_info=True)
+            return None
     
     async def close(self):
         """

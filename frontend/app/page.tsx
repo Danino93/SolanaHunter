@@ -37,12 +37,17 @@ import {
   LogOut,
   Shield,
   Calendar,
-  X
+  X,
+  DollarSign,
+  Eye,
+  Heart,
+  Download
 } from 'lucide-react'
 import TokenChart from '@/components/TokenChart'
 import DashboardLayout from '@/components/DashboardLayout'
 import TokenDetailModal from '@/components/TokenDetailModal'
 import { showToast } from '@/components/Toast'
+import { TableSkeleton, TableRowSkeleton } from '@/components/SkeletonLoader'
 
 interface Token {
   id: string
@@ -70,6 +75,75 @@ export default function Dashboard() {
   const [authChecked, setAuthChecked] = useState(false)
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all')
   const [selectedToken, setSelectedToken] = useState<Token | null>(null)
+  
+  // Export functions
+  const exportToCSV = () => {
+    const data = filteredTokens.map(token => ({
+      symbol: token.symbol,
+      name: token.name,
+      address: token.address,
+      score: token.score,
+      grade: token.grade,
+      safety_score: token.safety_score,
+      holder_score: token.holder_score,
+      smart_money_score: token.smart_money_score,
+      analyzed_at: token.analyzed_at
+    }))
+    
+    const csv = [
+      ['Symbol', 'Name', 'Address', 'Score', 'Grade', 'Safety Score', 'Holder Score', 'Smart Money Score', 'Analyzed At'],
+      ...data.map(t => [
+        t.symbol,
+        t.name,
+        t.address,
+        t.score.toString(),
+        t.grade,
+        t.safety_score.toString(),
+        t.holder_score.toString(),
+        t.smart_money_score.toString(),
+        t.analyzed_at
+      ])
+    ].map(row => row.join(',')).join('\n')
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `solana-tokens-${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    showToast('הנתונים יוצאו בהצלחה!', 'success')
+  }
+  
+  const exportToJSON = () => {
+    const data = filteredTokens.map(token => ({
+      symbol: token.symbol,
+      name: token.name,
+      address: token.address,
+      score: token.score,
+      grade: token.grade,
+      safety_score: token.safety_score,
+      holder_score: token.holder_score,
+      smart_money_score: token.smart_money_score,
+      analyzed_at: token.analyzed_at
+    }))
+    
+    const json = JSON.stringify(data, null, 2)
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `solana-tokens-${new Date().toISOString().split('T')[0]}.json`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    showToast('הנתונים יוצאו בהצלחה!', 'success')
+  }
 
   // בדיקת אימות - תמיד רץ
   useEffect(() => {
@@ -278,6 +352,31 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {/* Export Data Dropdown */}
+              <div className="relative group">
+                <button
+                  onClick={exportToCSV}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                  title="ייצא נתונים"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden md:inline">ייצא נתונים</span>
+                </button>
+                <div className="absolute left-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <button
+                    onClick={exportToCSV}
+                    className="w-full text-right px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-t-xl transition-colors"
+                  >
+                    ייצא ל-CSV
+                  </button>
+                  <button
+                    onClick={exportToJSON}
+                    className="w-full text-right px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-b-xl transition-colors"
+                  >
+                    ייצא ל-JSON
+                  </button>
+                </div>
+              </div>
               <button
                 onClick={() => {
                   clearAuthToken()
@@ -371,9 +470,25 @@ export default function Dashboard() {
         {/* Tokens Table - עוד יותר מרהיב! */}
         <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl border border-slate-200/50 dark:border-slate-700 shadow-2xl overflow-hidden animate-fade-in hover:shadow-3xl transition-shadow duration-300">
           {loading ? (
-            <div className="p-12 text-center">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
-              <p className="text-slate-600 dark:text-slate-400">טוען טוקנים...</p>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-100/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">טוקן</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">ציון</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">Grade</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">מחיר</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">פירוט</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">נותח</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">פעולות</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <TableRowSkeleton key={i} />
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : filteredTokens.length === 0 ? (
             <div className="p-12 text-center">
@@ -493,21 +608,43 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
+                          {/* Quick Actions */}
+                          <button
+                            onClick={() => {
+                              router.push(`/trading?token=${token.address}&action=buy`)
+                              showToast('מעבר לדף המסחר...', 'info')
+                            }}
+                            className="p-2 rounded-lg bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:scale-110 transition-all duration-200 shadow-sm hover:shadow-md"
+                            title="קנה"
+                          >
+                            <DollarSign className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedToken(token)
+                              showToast('פתיחת פרטי טוקן...', 'info')
+                            }}
+                            className="p-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 hover:scale-110 transition-all duration-200 shadow-sm hover:shadow-md"
+                            title="צפה בפרטים"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              showToast('נוסף למועדפים!', 'success')
+                            }}
+                            className="p-2 rounded-lg bg-pink-500/10 text-pink-500 hover:bg-pink-500/20 hover:scale-110 transition-all duration-200 shadow-sm hover:shadow-md"
+                            title="הוסף למועדפים"
+                          >
+                            <Heart className="w-4 h-4" />
+                          </button>
+                          {/* External Links */}
                           <a
                             href={`https://dexscreener.com/solana/${token.address}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 hover:scale-110 transition-all duration-200 shadow-sm hover:shadow-md"
+                            className="p-2 rounded-lg bg-slate-500/10 text-slate-500 hover:bg-slate-500/20 hover:scale-110 transition-all duration-200 shadow-sm hover:shadow-md"
                             title="DexScreener"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
-                          <a
-                            href={`https://solscan.io/token/${token.address}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 rounded-lg bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 hover:scale-110 transition-all duration-200 shadow-sm hover:shadow-md"
-                            title="Solscan"
                           >
                             <ExternalLink className="w-4 h-4" />
                           </a>
