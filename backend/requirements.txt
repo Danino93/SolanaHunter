@@ -1,37 +1,29 @@
-# SolanaHunter - Python Dependencies
-# Modern, production-ready stack for 2026
-
-# Core
 python-dotenv>=1.0.0
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
 
-# Solana Blockchain
+# Solana
 solana==0.30.2
 solders==0.18.1
+base58
 
-# HTTP & APIs
-# NOTE: solana-py (0.30.2) requires: httpx>=0.23.0,<0.24.0
+# HTTP
 httpx==0.23.3
 aiohttp>=3.9.0
 requests>=2.31.0
+websockets
 
-# Jupiter DEX
-# Note: Jupiter uses REST API directly, no SDK needed yet
-
-# Database (Deferred until Day 5)
-# supabase==2.3.0
-# asyncpg==0.29.0
+# Database - הורדתי את הסולמיות כאן!
+supabase>=2.3.0
+asyncpg>=0.29.0
 
 # Utilities
 python-dateutil==2.8.2
 pytz==2023.3
-tenacity==8.2.3  # Retry logic
-rich==13.7.0  # Beautiful terminal output
-structlog==23.2.0  # Structured logging
+tenacity==8.2.3
+rich==13.7.0
+structlog==23.2.0
 
-# Web / AI / Dev dependencies will be added later when we reach those days in the plan.
-
-# FastAPI & Web Server (for Dashboard API)
+# Server
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
