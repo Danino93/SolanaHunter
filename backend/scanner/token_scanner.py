@@ -119,57 +119,75 @@ class TokenScanner:
         return new_tokens
     
     async def _discover_from_dexscreener(self, hours: int) -> List[Dict]:
-        """Discover tokens from DexScreener API"""
-        cutoff_time = datetime.now() - timedelta(hours=hours)
-        
-        url = "https://api.dexscreener.com/latest/dex/pairs/solana"
-        
+        """Discover tokens from DexScreener API (Updated API)"""
         try:
-            response = await self.client.get(url)
-            response.raise_for_status()
-            data = response.json()
+            # שימוש ב-API החדש לפרופילים אחרונים
+            url = "https://api.dexscreener.com/token-profiles/latest/v1"
             
-            pairs = data.get("pairs", [])
-            
-            tokens = []
-            for pair in pairs:
-                # Check if pair is new
-                try:
-                    created_at = datetime.fromtimestamp(pair.get("pairCreatedAt", 0) / 1000)
-                    if created_at < cutoff_time:
-                        continue
-                except (ValueError, TypeError):
-                    continue
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url)
                 
-                # Extract token info
-                base_token = pair.get("baseToken", {})
-                quote_token = pair.get("quoteToken", {})
-                
-                # Only process SOL pairs
-                if quote_token.get("symbol") != "SOL":
-                    continue
-                
-                token = {
-                    "address": base_token.get("address", ""),
-                    "symbol": base_token.get("symbol", "UNKNOWN"),
-                    "name": base_token.get("name", "Unknown Token"),
-                    "decimals": base_token.get("decimals", 9),
-                    "price_usd": float(pair.get("priceUsd", 0)),
-                    "liquidity_usd": float(pair.get("liquidity", {}).get("usd", 0)),
-                    "volume_24h": float(pair.get("volume", {}).get("h24", 0)),
-                    "price_change_24h": float(pair.get("priceChange", {}).get("h24", 0)),
-                    "created_at": created_at,
-                    "source": "dexscreener",
-                    "pair_address": pair.get("pairAddress", ""),
-                }
-                
-                if token["address"]:
-                    tokens.append(token)
-            
-            return tokens
-            
+                if response.status_code == 200:
+                    data = response.json()
+                    # מסנן רק טוקנים של סולנה
+                    solana_tokens = [
+                        t for t in data 
+                        if t.get('chainId') == 'solana'
+                    ]
+                    logger.info(f"✅ DexScreener: Found {len(solana_tokens)} new Solana profiles")
+                    
+                    # המר לפורמט הסטנדרטי
+                    cutoff_time = datetime.now() - timedelta(hours=hours)
+                    tokens = []
+                    
+                    for profile in solana_tokens:
+                        try:
+                            # בדוק אם הטוקן חדש מספיק
+                            created_at_str = profile.get('createdAt') or profile.get('created_at')
+                            if created_at_str:
+                                if isinstance(created_at_str, (int, float)):
+                                    created_at = datetime.fromtimestamp(created_at_str / 1000 if created_at_str > 1e10 else created_at_str)
+                                else:
+                                    created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                            else:
+                                # אם אין תאריך, נניח שהוא חדש
+                                created_at = datetime.now()
+                            
+                            if created_at < cutoff_time:
+                                continue
+                            
+                            # Extract token info
+                            token_address = profile.get('address') or profile.get('tokenAddress')
+                            if not token_address:
+                                continue
+                            
+                            token = {
+                                "address": token_address,
+                                "symbol": profile.get('symbol', 'UNKNOWN'),
+                                "name": profile.get('name', 'Unknown Token'),
+                                "decimals": profile.get('decimals', 9),
+                                "price_usd": float(profile.get('priceUsd', profile.get('price', 0))),
+                                "liquidity_usd": float(profile.get('liquidity', {}).get('usd', 0) if isinstance(profile.get('liquidity'), dict) else profile.get('liquidityUsd', 0))),
+                                "volume_24h": float(profile.get('volume24h', profile.get('volume', {}).get('h24', 0) if isinstance(profile.get('volume'), dict) else 0))),
+                                "price_change_24h": float(profile.get('priceChange24h', profile.get('priceChange', {}).get('h24', 0) if isinstance(profile.get('priceChange'), dict) else 0))),
+                                "created_at": created_at,
+                                "source": "dexscreener",
+                                "pair_address": profile.get('pairAddress', ''),
+                            }
+                            
+                            tokens.append(token)
+                            
+                        except (ValueError, TypeError, KeyError) as e:
+                            logger.debug(f"Skipping invalid token profile: {e}")
+                            continue
+                    
+                    return tokens
+                else:
+                    logger.warning(f"⚠️ DexScreener API error: {response.status_code}")
+                    return []
+                    
         except Exception as e:
-            logger.error(f"DexScreener API error: {e}")
+            logger.error(f"❌ Error fetching from DexScreener: {e}")
             return []
     
     async def _discover_from_helius(self, hours: int) -> List[Dict]:
