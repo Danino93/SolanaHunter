@@ -163,10 +163,15 @@ class TokenScanner:
                         if created_at < cutoff_time:
                             continue
                         
-                        # Extract token info
-                        token_address = profile.get('address') or profile.get('tokenAddress')
+                        # Extract token info from baseToken (FIXED!)
+                        base_token = profile.get('baseToken', {})
+                        token_address = base_token.get('address') or profile.get('address') or profile.get('tokenAddress')
                         if not token_address:
                             continue
+                        
+                        # Get symbol and name from baseToken first, then fallback (FIXED!)
+                        symbol = base_token.get('symbol') or profile.get('symbol', 'UNKNOWN')
+                        name = base_token.get('name') or profile.get('name', 'Unknown Token')
                         
                         # Extract values safely
                         liquidity = profile.get('liquidity', {})
@@ -189,9 +194,9 @@ class TokenScanner:
                         
                         token = {
                             "address": token_address,
-                            "symbol": profile.get('symbol', 'UNKNOWN'),
-                            "name": profile.get('name', 'Unknown Token'),
-                            "decimals": profile.get('decimals', 9),
+                            "symbol": symbol,  # FIXED!
+                            "name": name,      # FIXED!
+                            "decimals": base_token.get('decimals', 9),
                             "price_usd": float(profile.get('priceUsd', profile.get('price', 0))),
                             "liquidity_usd": liquidity_usd,
                             "volume_24h": volume_24h,
