@@ -42,8 +42,19 @@ from enum import Enum
 import asyncio
 
 from executor.jupiter_client import JupiterClient
+
+
+class PositionStatus(Enum):
+    """Position status types"""
+    ACTIVE = "ACTIVE"
+    STOP_LOSS_HIT = "STOP_LOSS_HIT" 
+    TIME_LIMIT_REACHED = "TIME_LIMIT_REACHED"
+    EMERGENCY_EXIT = "EMERGENCY_EXIT"  # NEW
+    MANUAL_CLOSE = "MANUAL_CLOSE"
+    COMPLETED = "COMPLETED"
 from executor.wallet_manager import WalletManager
 from executor.price_fetcher import PriceFetcher
+from analyzer.rug_detector import get_rug_detector
 from core.config import settings
 from utils.logger import get_logger
 
@@ -134,6 +145,7 @@ class PositionMonitor:
         self.jupiter = jupiter_client
         self.wallet = wallet_manager
         self.price_fetcher = price_fetcher or PriceFetcher()
+        self.rug_detector = get_rug_detector()  # NEW
         self.check_interval = check_interval_seconds
         self.alert_callback = alert_callback
         
@@ -224,6 +236,31 @@ class PositionMonitor:
                         PositionStatus.TIME_LIMIT_REACHED
                     )
                     break
+                
+                # בדוק Rug Pull (NEW)
+                try:
+                    rug_alert = await self.rug_detector.check_rug_pull(position.token_mint)
+                    
+                    if rug_alert.is_rug_pull:
+                        logger.warning(
+                            f"🚨 RUG PULL DETECTED for {position.token_symbol}! "
+                            f"Severity: {rug_alert.severity}, Score: {rug_alert.score}/100"
+                        )
+                        for reason in rug_alert.reasons:
+                            logger.warning(f"  • {reason}")
+                        
+                        # Emergency exit!
+                        await self._emergency_exit(position, rug_alert)
+                        break
+                    
+                    elif rug_alert.severity in ["HIGH", "CRITICAL"]:
+                        logger.warning(
+                            f"⚠️ HIGH RUG RISK for {position.token_symbol} "
+                            f"(Score: {rug_alert.score}/100) - Consider manual exit"
+                        )
+                
+                except Exception as e:
+                    logger.error(f"Error checking rug pull for {position.token_symbol}: {e}")
                 
                 # חכה לפני הבדיקה הבאה
                 await asyncio.sleep(self.check_interval)
@@ -544,6 +581,65 @@ class PositionMonitor:
         except Exception as e:
             logger.error(f"❌ Error transferring: {e}", exc_info=True)
             return None
+    
+    async def _emergency_exit(self, position: Position, rug_alert) -> None:
+        """
+        Emergency exit due to rug pull detection
+        
+        Args:
+            position: Position to exit
+            rug_alert: RugPullAlert object with details
+        """
+        logger.critical(
+            f"🚨 EMERGENCY EXIT: {position.token_symbol} "
+            f"({position.token_mint[:8]}...) - RUG PULL DETECTED!"
+        )
+        
+        # Log all reasons
+        for reason in rug_alert.reasons:
+            logger.critical(f"  🚨 {reason}")
+        
+        try:
+            # Attempt immediate sell
+            await self._sell_position(
+                position, 
+                PositionStatus.EMERGENCY_EXIT  # We need to add this status
+            )
+            
+            # Send urgent alert if callback available
+            if self.alert_callback:
+                alert_msg = (
+                    f"🚨 EMERGENCY EXIT EXECUTED!\n"
+                    f"Token: {position.token_symbol}\n"
+                    f"Reason: Rug Pull Detected\n"
+                    f"Severity: {rug_alert.severity}\n"
+                    f"Score: {rug_alert.score}/100\n\n"
+                    f"Details:\n" + 
+                    "\n".join([f"• {r}" for r in rug_alert.reasons])
+                )
+                
+                try:
+                    await self.alert_callback(alert_msg)
+                except Exception as e:
+                    logger.error(f"Error sending emergency alert: {e}")
+        
+        except Exception as e:
+            logger.error(
+                f"❌ Emergency exit failed for {position.token_symbol}: {e}",
+                exc_info=True
+            )
+            
+            # Still send alert about the failure
+            if self.alert_callback:
+                try:
+                    await self.alert_callback(
+                        f"💥 EMERGENCY EXIT FAILED!\n"
+                        f"Token: {position.token_symbol}\n"
+                        f"Error: {str(e)}\n"
+                        f"MANUAL INTERVENTION REQUIRED!"
+                    )
+                except:
+                    pass
     
     def get_profit_stats(self) -> Dict[str, Any]:
         """

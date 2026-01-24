@@ -100,6 +100,14 @@ class TokenScanner:
         except Exception as e:
             logger.warning(f"⚠️ Helius discovery not available: {e}")
         
+        # Source 3: PumpFun (NEW)
+        try:
+            pumpfun_tokens = await self._discover_from_pumpfun(hours)
+            all_tokens.extend(pumpfun_tokens)
+            logger.info(f"✅ PumpFun: Found {len(pumpfun_tokens)} tokens")
+        except Exception as e:
+            logger.warning(f"⚠️ PumpFun error: {e}")
+        
         # Deduplicate by address
         unique_tokens = self._deduplicate_tokens(all_tokens)
         
@@ -216,6 +224,73 @@ class TokenScanner:
         # For now, return empty list
         # TODO: Implement when Helius Enhanced APIs are available
         return []
+    
+    async def _discover_from_pumpfun(self, hours: int) -> List[Dict]:
+        """
+        Discover new tokens from PumpFun
+        
+        Args:
+            hours: Look back period in hours
+            
+        Returns:
+            List of token dictionaries
+        """
+        try:
+            url = "https://frontend-api.pump.fun/coins/latest"
+            
+            response = await self.client.get(url)
+            
+            if response.status_code != 200:
+                logger.warning(f"PumpFun API error: {response.status_code}")
+                return []
+                
+            data = response.json()
+            
+            cutoff_time = datetime.now() - timedelta(hours=hours)
+            tokens = []
+            
+            for coin in data[:100]:  # Latest 100
+                try:
+                    # Get creation timestamp
+                    created_timestamp = coin.get("created_timestamp", 0)
+                    if not created_timestamp:
+                        continue
+                        
+                    created_at = datetime.fromtimestamp(created_timestamp)
+                    
+                    if created_at < cutoff_time:
+                        continue
+                    
+                    # Calculate price
+                    market_cap = coin.get("usd_market_cap", 0)
+                    total_supply = coin.get("total_supply", 1)
+                    price_usd = market_cap / total_supply if total_supply > 0 else 0
+                    
+                    token = {
+                        "address": coin["mint"],
+                        "symbol": coin["symbol"],
+                        "name": coin["name"],
+                        "price_usd": price_usd,
+                        "market_cap": market_cap,
+                        "source": "pumpfun",
+                        "created_at": created_at,
+                        "description": coin.get("description", ""),
+                        "image_uri": coin.get("image_uri", ""),
+                        "website": coin.get("website", ""),
+                        "twitter": coin.get("twitter", ""),
+                        "telegram": coin.get("telegram", ""),
+                    }
+                    tokens.append(token)
+                
+                except Exception as e:
+                    logger.debug(f"Error processing PumpFun coin: {e}")
+                    continue
+            
+            return tokens
+        
+        except Exception as e:
+            logger.error(f"Error fetching from PumpFun: {e}")
+            return []
     
     def _deduplicate_tokens(self, tokens: List[Dict]) -> List[Dict]:
         """Remove duplicate tokens by address"""

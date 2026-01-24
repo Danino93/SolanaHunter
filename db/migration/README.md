@@ -6,7 +6,10 @@
 
 ## 🗂️ קבצים
 
-- `001_initial_schema.sql` - ה-migration הראשוני - יוצר את כל הטבלאות
+- `001_initial_schema.sql` - ה-migration הראשוני - יוצר את הטבלאות הבסיסיות  
+- `002_claude_ai_upgrades.sql` - 🆕 **V2.0 Upgrades** - מערכת למידה + Smart Wallets 2.0
+- `CLAUDE_AI_UPGRADES_README.md` - 📚 תיעוד מפורט של השדרוגים
+- `SCHEMA_OVERVIEW_V2.md` - 📊 מבנה המסד החדש
 
 ## 🚀 איך להשתמש?
 
@@ -16,18 +19,65 @@
 2. בחר את הפרויקט שלך
 3. לך ל-**SQL Editor** (בתפריט השמאלי)
 
-### שלב 2: הרצת Migration
+### שלב 2: הרצת Migrations
 
+#### 🔰 **למשתמשים חדשים:**
 1. פתח את הקובץ `001_initial_schema.sql`
 2. העתק את **כל התוכן** (Ctrl+A, Ctrl+C)
 3. הדבק ב-SQL Editor של Supabase
 4. לחץ על **Run** (או F5)
+5. המתן לסיום ובדוק שאין שגיאות
+
+#### 🆕 **שדרוג ל-V2.0 (Claude AI Upgrades):**
+1. **אחרי שהרצת 001**, פתח את `002_claude_ai_upgrades.sql`
+2. העתק את **כל התוכן** (Ctrl+A, Ctrl+C)
+3. הדבק ב-SQL Editor של Supabase
+4. לחץ על **Run** (או F5)
+5. המתן לסיום - אמור לראות הודעות הצלחה:
+   ```
+   🎉 SolanaHunter V2.0 Migration Completed Successfully!
+   Tables created: performance_tracking, smart_wallets, scanned_tokens_history, wallet_token_holdings
+   Functions created: add_smart_wallet, update_trust_score, log_scanned_token
+   ```
 
 ### שלב 3: בדיקה
 
+#### 🔰 **אחרי Migration 001:**
 1. לך ל-**Table Editor** ב-Supabase
 2. ודא שכל הטבלאות הבאות קיימות:
    - ✅ `tokens`
+
+#### 🆕 **אחרי Migration 002 (V2.0):**
+1. לך ל-**Table Editor** ב-Supabase
+2. ודא שהטבלאות החדשות נוצרו:
+   - ✅ `performance_tracking` - מעקב ביצועים
+   - ✅ `smart_wallets` - Smart Money עם Trust Scores
+   - ✅ `scanned_tokens_history` - היסטוריית טוכנים
+   - ✅ `wallet_token_holdings` - קשרים בין ארנקים לטוכנים
+3. בדוק Views חדשים:
+   - ✅ `smart_wallets_stats` - סטטיסטיקות Smart Wallets
+   - ✅ `bot_performance_summary` - ביצועי הבוט
+4. בדוק Functions חדשים (ב-Database > Functions):
+   - ✅ `add_smart_wallet()` 
+   - ✅ `update_trust_score()`
+   - ✅ `log_scanned_token()`
+
+### שלב 4: 🚀 **הפעלת הבוט החדש**
+
+#### אחרי V2.0 Migration:
+```bash
+cd backend
+python main.py
+```
+
+**מה תראה בלוגים החדשים:**
+```
+📊 Advanced Score: 87/100 | Grade: A | Safety=22/25 | Holders=18/20 | 
+Liquidity=25/25 | Volume=12/15 | SmartMoney=8/10 | PriceAction=2/5
+
+📌 Starting to track BONK at $0.00001234 (Score: 87/100)
+🚀 Starting performance monitoring loop...
+```
    - ✅ `smart_wallets`
    - ✅ `trades`
    - ✅ `positions`

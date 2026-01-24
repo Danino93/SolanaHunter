@@ -62,6 +62,8 @@ from executor.dca_strategy import DCAStrategy
 from executor.position_monitor import PositionMonitor
 from executor.take_profit_strategy import TakeProfitStrategy
 from executor.price_fetcher import PriceFetcher
+from analyzer.token_metrics import TokenMetricsFetcher
+from executor.performance_tracker import get_performance_tracker
 
 # Setup logging
 logger = setup_logger("solanahunter", settings.log_level)
@@ -76,6 +78,8 @@ class SolanaHunter:
         self.contract_checker = None  # Will be initialized in async context
         self.holder_analyzer = HolderAnalyzer()
         self.scoring_engine = ScoringEngine(alert_threshold=settings.alert_threshold)
+        self.metrics_fetcher = TokenMetricsFetcher()  # NEW
+        self.performance_tracker = get_performance_tracker()  # NEW
         self.discovery_engine = get_discovery_engine()
         self.supabase = get_supabase_client()  # Supabase client for database
         self._last_tokens: list[dict] = []
@@ -190,6 +194,9 @@ class SolanaHunter:
             logger.info("🔍 Running initial smart wallet discovery...")
             asyncio.create_task(self._run_initial_discovery())
         
+        # Start performance tracking in background (NEW)
+        asyncio.create_task(self.performance_tracker.start_monitoring())
+        
         # Start scanning loop
         try:
             await self._scan_loop()
@@ -237,12 +244,24 @@ class SolanaHunter:
                                 token["liquidity_locked"] = safety.liquidity_locked
                                 token["mint_authority_disabled"] = safety.mint_authority_disabled
                                 
-                                # Holder analysis
+                                # Holder analysis (UPGRADED)
                                 holders = await self.holder_analyzer.analyze(token["address"])
                                 token["holder_count"] = holders.holder_count
                                 token["top_10_percentage"] = holders.top_10_percentage
+                                token["total_lp_percentage"] = holders.total_lp_percentage  # NEW
+                                token["total_burn_percentage"] = holders.total_burn_percentage  # NEW
                                 token["is_concentrated"] = holders.is_concentrated
                                 token["holder_score"] = holders.holder_score
+                                
+                                # Token Metrics (NEW)
+                                metrics = await self.metrics_fetcher.get_metrics(token["address"])
+                                token["liquidity_sol"] = metrics.liquidity_sol
+                                token["liquidity_usd"] = metrics.liquidity_usd
+                                token["volume_24h"] = metrics.volume_24h
+                                token["price_usd"] = metrics.price_usd
+                                token["price_change_5m"] = metrics.price_change_5m
+                                token["price_change_1h"] = metrics.price_change_1h
+                                token["price_change_24h"] = metrics.price_change_24h
                                 
                                 # Smart money check
                                 smart_money_tracker = get_smart_money_tracker()
@@ -253,10 +272,14 @@ class SolanaHunter:
                                 )
                                 token["smart_money_count"] = smart_money_count
                                 
-                                # Calculate final score
+                                # Calculate final score (UPGRADED)
                                 token_score = self.scoring_engine.calculate_score(
                                     safety=safety,
                                     holders=holders,
+                                    liquidity_sol=metrics.liquidity_sol,  # NEW
+                                    volume_24h=metrics.volume_24h,  # NEW
+                                    price_change_5m=metrics.price_change_5m,  # NEW
+                                    price_change_1h=metrics.price_change_1h,  # NEW
                                     smart_money_count=smart_money_count
                                 )
                                 
@@ -289,6 +312,16 @@ class SolanaHunter:
                                         if len(self._alert_history) > 100:
                                             self._alert_history.pop(0)
                                         asyncio.create_task(self.telegram.send_alert(token))
+                                        
+                                        # Track token for performance learning (NEW)
+                                        if token.get("price_usd", 0) > 0:
+                                            asyncio.create_task(self.performance_tracker.track_token(
+                                                token_address=token["address"],
+                                                symbol=token["symbol"],
+                                                entry_price=token["price_usd"],
+                                                entry_score=token_score.final_score,
+                                                smart_wallets=holder_addresses
+                                            ))
                                     
                                     # בדוק אם טוקן במעקב
                                     if token.get("address") in self._watched_tokens:
@@ -437,9 +470,16 @@ class SolanaHunter:
         holder_addresses = [h.get("address", "") for h in holders.top_holders]
         smart_money_count = get_smart_money_tracker().check_if_holds(token_address, holder_addresses)
 
+        # Get token metrics for detailed analysis
+        metrics = await self.metrics_fetcher.get_metrics(token_address)
+
         token_score = self.scoring_engine.calculate_score(
             safety=safety,
             holders=holders,
+            liquidity_sol=metrics.liquidity_sol,
+            volume_24h=metrics.volume_24h,
+            price_change_5m=metrics.price_change_5m,
+            price_change_1h=metrics.price_change_1h,
             smart_money_count=smart_money_count,
         )
 
@@ -455,13 +495,17 @@ class SolanaHunter:
             f"<b>קטגוריה:</b> {token_score.category.value}\n"
             f"<b>רמת סיכון:</b> {risk_level}\n\n"
             f"<b>פירוט:</b>\n"
-            f"• בטיחות: {safety.safety_score}/100\n"
+            f"• בטיחות: {token_score.safety_score}/25 ({safety.safety_score}/100)\n"
             f"  {'✅' if safety.ownership_renounced else '❌'} Ownership renounced\n"
             f"  {'✅' if safety.liquidity_locked else '❌'} Liquidity locked\n"
             f"  {'✅' if safety.mint_authority_disabled else '❌'} Mint disabled\n"
             f"• מחזיקים: {holders.holder_count} (ציון: {holders.holder_score}/20)\n"
-            f"• Top 10%: {holders.top_10_percentage:.1f}%\n"
-            f"• Smart Money: {smart_money_count} (ציון: {token_score.smart_money_score}/15)\n\n"
+            f"• LP Pool: {holders.total_lp_percentage:.1f}% | Burn: {holders.total_burn_percentage:.1f}%\n"
+            f"• Top 10 Whales: {holders.top_10_percentage:.1f}%\n"
+            f"• נזילות: {metrics.liquidity_sol:.1f} SOL (ציון: {token_score.liquidity_score}/25)\n"
+            f"• Volume 24h: ${metrics.volume_24h:,.0f} (ציון: {token_score.volume_score}/15)\n"
+            f"• מחיר: ${metrics.price_usd:.8f} ({metrics.price_change_24h:+.1f}% 24h)\n"
+            f"• Smart Money: {smart_money_count} (ציון: {token_score.smart_money_score}/10)\n\n"
             f"<code>{token_address}</code>\n\n"
             f"<a href=\"{dex}\">📊 DexScreener</a> | <a href=\"{solscan}\">🔍 Solscan</a>"
         )

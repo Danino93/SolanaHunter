@@ -56,10 +56,18 @@ class Settings(BaseSettings):
     # ============================================
     helius_api_key: str = Field(..., env="HELIUS_API_KEY")
     solana_rpc_url: Optional[str] = Field(None, env="SOLANA_RPC_URL")
+    rpc_endpoint: Optional[str] = Field(None, env="RPC_ENDPOINT")  # NEW
     
     @validator("solana_rpc_url", always=True)
     def build_rpc_url(cls, v, values):
         """Build RPC URL if not provided"""
+        if not v and "helius_api_key" in values:
+            return f"https://mainnet.helius-rpc.com/?api-key={values['helius_api_key']}"
+        return v
+    
+    @validator("rpc_endpoint", always=True)
+    def build_rpc_endpoint(cls, v, values):
+        """Build RPC endpoint if not provided"""
         if not v and "helius_api_key" in values:
             return f"https://mainnet.helius-rpc.com/?api-key={values['helius_api_key']}"
         return v
