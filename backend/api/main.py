@@ -33,7 +33,7 @@ app = FastAPI(
 )
 
 # CORS configuration - מאפשר קריאות מ-frontend
-# FastAPI לא תומך ב-wildcards ב-allow_origins, אז משתמשים ב-allow_origin_regex
+# מאפשר גישה מ-localhost (development) ומ-Vercel (production + previews)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -43,9 +43,9 @@ app.add_middleware(
     ],
     allow_origin_regex=r"https://.*\.vercel\.app",  # כל ה-Vercel preview deployments
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["*"],  # מאפשר כל ה-HTTP methods
+    allow_headers=["*"],  # מאפשר כל ה-headers
+    expose_headers=["*"],  # חושף כל ה-headers
 )
 
 # Include routes
