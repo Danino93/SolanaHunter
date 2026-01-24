@@ -20,4 +20,4 @@ EXPOSE 8080
 ENV PORT=8080
 
 # Start the application
-CMD ["python", "run_api.py"]
+CMD ["python", "main.py"]  # ← בוט מלא!
