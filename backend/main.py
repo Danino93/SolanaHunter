@@ -1118,23 +1118,53 @@ async def main():
         from api.main import init_app
         api_app = init_app(bot)
         
-        # Start FastAPI server in background
+        # Start FastAPI server in background (async)
         import uvicorn
         import os
-        from threading import Thread
         
         # Get port from environment variable (Railway/Heroku) or default to 8000
         port = int(os.environ.get("PORT", 8000))
         
-        def run_api():
-            uvicorn.run(api_app, host="0.0.0.0", port=port, log_level="info")
+        # Create uvicorn config
+        config = uvicorn.Config(
+            api_app,
+            host="0.0.0.0",
+            port=port,
+            log_level="info",
+            access_log=True
+        )
+        server = uvicorn.Server(config)
         
-        api_thread = Thread(target=run_api, daemon=True)
-        api_thread.start()
-        logger.info(f"🚀 FastAPI server started on http://0.0.0.0:{port}")
+        # Start server in background (non-blocking)
+        async def run_api():
+            await server.serve()
         
-        # Start bot
-        await bot.start()
+        # Start API server as background task (CRITICAL - must stay running)
+        api_task = asyncio.create_task(run_api())
+        logger.info(f"🚀 FastAPI server starting on http://0.0.0.0:{port}")
+        
+        # Give server a moment to start
+        await asyncio.sleep(2)
+        
+        # Start bot as background task (non-blocking, optional)
+        # If bot fails, API server should continue running
+        async def run_bot_safely():
+            try:
+                await bot.start()
+            except Exception as e:
+                logger.error(f"❌ Bot crashed but API server continues: {e}", exc_info=True)
+                # Don't re-raise - let API server keep running
+        
+        bot_task = asyncio.create_task(run_bot_safely())
+        logger.info("🤖 Bot started in background")
+        
+        # Keep API server running - wait for it (it should run forever)
+        # If bot fails, API server continues
+        try:
+            await api_task  # This will run forever (until shutdown)
+        except Exception as e:
+            logger.critical(f"💥 API server crashed: {e}", exc_info=True)
+            raise
     except Exception as e:
         logger.critical(f"💥 Fatal error: {e}", exc_info=True)
         sys.exit(1)
