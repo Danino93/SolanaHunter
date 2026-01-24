@@ -343,6 +343,18 @@ class SolanaHunter:
                                     f"SmartMoney={smart_money_count} ({token_score.smart_money_score}/15) | "
                                     f"Top10%={holders.top_10_percentage:.1f}%"
                                 )
+                                
+                                # Save token to Supabase database
+                                if self.supabase and self.supabase.enabled:
+                                    try:
+                                        async with self.supabase:
+                                            saved = await self.supabase.save_token(token)
+                                            if saved:
+                                                logger.debug(f"✅ Saved {token['symbol']} to database")
+                                            else:
+                                                logger.warning(f"⚠️ Failed to save {token['symbol']} to database")
+                                    except Exception as db_error:
+                                        logger.error(f"❌ Database error saving {token['symbol']}: {db_error}")
                             except Exception as e:
                                 logger.warning(f"⚠️ Failed to analyze {token.get('symbol', 'unknown')}: {e}")
                         

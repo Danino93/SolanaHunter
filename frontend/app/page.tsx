@@ -93,51 +93,6 @@ export default function Dashboard() {
   const [authChecked, setAuthChecked] = useState(false)
   const [selectedToken, setSelectedToken] = useState<Token | null>(null)
   
-  // Mock data for demonstration
-  const generateMockTokens = (): Token[] => {
-    const symbols = ['SOL', 'BONK', 'WIF', 'MYRO', 'BOME', 'SLERF', 'MEW', 'PONKE', 'POPCAT', 'MOODENG']
-    const names = ['Solana', 'Bonk', 'dogwifhat', 'Myro', 'Book of Meme', 'Slerf', 'Cat in a dogs world', 'Ponke', 'Popcat', 'Moo Deng']
-    
-    return symbols.map((symbol, i) => ({
-      id: `${i + 1}`,
-      address: `${symbol}${Math.random().toString(36).substring(2, 15)}`,
-      symbol,
-      name: names[i],
-      price: Math.random() * 100,
-      change24h: (Math.random() - 0.5) * 50,
-      volume24h: Math.random() * 10000000,
-      liquidity: Math.random() * 5000000,
-      marketCap: Math.random() * 100000000,
-      score: Math.floor(Math.random() * 40) + 60,
-      safety_score: Math.floor(Math.random() * 25) + 15,
-      holder_score: Math.floor(Math.random() * 20) + 10,
-      liquidity_score: Math.floor(Math.random() * 25) + 15,
-      volume_score: Math.floor(Math.random() * 15) + 8,
-      smart_money_score: Math.floor(Math.random() * 10) + 5,
-      price_action_score: Math.floor(Math.random() * 5) + 2,
-      grade: ['S+', 'S', 'A+', 'A', 'B+', 'B', 'C+', 'C'][Math.floor(Math.random() * 8)],
-      category: ['LEGENDARY', 'EXCELLENT', 'GOOD', 'FAIR', 'POOR'][Math.floor(Math.random() * 5)],
-      holders: Math.floor(Math.random() * 50000) + 1000,
-      smartMoney: Math.floor(Math.random() * 20),
-      lastSeen: new Date(Date.now() - Math.random() * 86400000).toISOString(),
-      trend: Array.from({ length: 10 }, () => Math.random() * 100),
-      analyzed_at: new Date().toISOString(),
-    }))
-  }
-
-  const generateMockWallets = (): SmartWallet[] => {
-    const nicknames = ['Smart Whale #1', 'DeGen King', 'Alpha Hunter', 'Diamond Hands', 'Profit Master']
-    
-    return nicknames.map((nickname, i) => ({
-      address: `wallet${i + 1}${Math.random().toString(36).substring(2, 15)}`,
-      nickname,
-      trustScore: Math.floor(Math.random() * 40) + 60,
-      successRate: Math.floor(Math.random() * 40) + 60,
-      totalTrades: Math.floor(Math.random() * 500) + 100,
-      avgROI: (Math.random() - 0.3) * 100,
-      achievements: ['earlyBird', 'diamondHands'].slice(0, Math.floor(Math.random() * 3)),
-    }))
-  }
 
   // Authentication check
   useEffect(() => {
@@ -191,9 +146,9 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Try to load from Backend API first
+      // Try to load from Backend API first (always try, even in production)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      if (apiUrl && apiUrl !== 'http://localhost:8000') {
+      if (apiUrl) {
         try {
           const { data: apiTokens, error: apiError } = await getTokens({ limit: 50 })
           if (!apiError && apiTokens?.tokens && apiTokens.tokens.length > 0) {
@@ -208,7 +163,7 @@ export default function Dashboard() {
               volume24h: 0,
               liquidity: 0,
               marketCap: 0,
-              score: token.score || 0,
+              score: token.final_score || token.score || 0,
               safety_score: token.safety_score || 0,
               holder_score: token.holder_score || 0,
               liquidity_score: 0,
@@ -219,15 +174,20 @@ export default function Dashboard() {
               category: token.category || 'FAIR',
               holders: token.holder_count || 0,
               smartMoney: 0,
-              lastSeen: token.analyzed_at || new Date().toISOString(),
-              trend: Array.from({ length: 10 }, () => Math.random() * 100),
+              lastSeen: token.last_analyzed_at || token.analyzed_at || new Date().toISOString(),
+              trend: [], // Trend data will come from API later
             }))
             setTokens(convertedTokens)
+            setSmartWallets([]) // Smart wallets will come from API later
             setLoading(false)
             return
+          } else if (apiError) {
+            console.error('שגיאה ב-API:', apiError)
+            showToast(`שגיאה בטעינת נתונים: ${apiError}`, 'error')
           }
         } catch (apiError) {
-          console.warn('שיחה ל-API נכשלה, מעבר ל-Supabase:', apiError)
+          console.error('שיחה ל-API נכשלה:', apiError)
+          showToast('שגיאה בחיבור לשרת', 'error')
         }
       }
 
@@ -251,7 +211,7 @@ export default function Dashboard() {
               volume24h: 0,
               liquidity: 0,
               marketCap: 0,
-              score: token.score || 0,
+              score: token.final_score || token.score || 0,
               safety_score: token.safety_score || 0,
               holder_score: token.holder_score || 0,
               liquidity_score: 0,
@@ -262,28 +222,30 @@ export default function Dashboard() {
               category: token.category || 'FAIR',
               holders: token.holder_count || 0,
               smartMoney: 0,
-              lastSeen: token.analyzed_at || new Date().toISOString(),
-              trend: Array.from({ length: 10 }, () => Math.random() * 100),
+              lastSeen: token.last_analyzed_at || token.analyzed_at || new Date().toISOString(),
+              trend: [], // Trend data will come from API later
             }))
             setTokens(convertedTokens)
+            setSmartWallets([]) // Smart wallets will come from Supabase later
             setLoading(false)
             return
+          } else if (error) {
+            console.error('שגיאה ב-Supabase:', error)
           }
         } catch (supabaseError) {
-          console.warn('שגיאה ב-Supabase:', supabaseError)
+          console.error('שגיאה ב-Supabase:', supabaseError)
         }
       }
 
-      // Fallback to mock data
-      const mockTokens = generateMockTokens()
-      const mockWallets = generateMockWallets()
-      setTokens(mockTokens)
-      setSmartWallets(mockWallets)
+      // No data available from any source
+      console.warn('אין נתונים זמינים - לא מ-API ולא מ-Supabase')
+      setTokens([])
+      setSmartWallets([])
     } catch (error) {
       console.error('שגיאה בטעינת נתונים:', error)
-      showToast('שגיאה בטעינת נתונים', 'error')
-      setTokens(generateMockTokens())
-      setSmartWallets(generateMockWallets())
+      showToast('שגיאה בטעינת נתונים מהשרת', 'error')
+      setTokens([])
+      setSmartWallets([])
     } finally {
       setLoading(false)
     }
@@ -305,15 +267,19 @@ export default function Dashboard() {
     totalLiquidity: tokens.reduce((sum, t) => sum + t.liquidity, 0),
   }
 
-  // Get featured token (highest score)
-  const featuredToken = tokens.reduce((prev, current) => 
-    (current.score > prev.score) ? current : prev
-  , tokens[0])
+  // Get featured token (highest score) - only if we have tokens
+  const featuredToken = tokens.length > 0 
+    ? tokens.reduce((prev, current) => 
+        (current.score > prev.score) ? current : prev
+      , tokens[0])
+    : null
 
-  // Get top smart wallet
-  const topWallet = smartWallets.reduce((prev, current) => 
-    (current.trustScore > prev.trustScore) ? current : prev
-  , smartWallets[0])
+  // Get top smart wallet - only if we have wallets
+  const topWallet = smartWallets.length > 0
+    ? smartWallets.reduce((prev, current) => 
+        (current.trustScore > prev.trustScore) ? current : prev
+      , smartWallets[0])
+    : null
 
   const handleSearch = (query: string) => {
     console.log('חיפוש:', query)
@@ -552,18 +518,21 @@ export default function Dashboard() {
             >
               <AlertCircle className="w-16 h-16 mx-auto mb-4 text-gray-400" />
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                לא נמצאו טוקנים
+                אין נתונים זמינים
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                הבוט עדיין לא גילה טוקנים. נסה שוב בקרוב!
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                לא הצלחנו לטעון נתונים מהשרת.
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mb-6">
+                ודא שהבוט רץ ושהחיבור לשרת תקין.
               </p>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={loadData}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl shadow-lg"
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl"
               >
-                רענן נתונים
+                נסה שוב
               </motion.button>
             </motion.div>
           )}

@@ -77,7 +77,7 @@ class SupabaseClient:
                 "address": token.get("address"),
                 "symbol": token.get("symbol", "UNKNOWN"),
                 "name": token.get("name", ""),
-                "score": token.get("final_score", 0),
+                "final_score": token.get("final_score", 0),
                 "safety_score": token.get("safety_score", 0),
                 "holder_score": token.get("holder_score", 0),
                 "smart_money_score": token.get("final_score", 0) - token.get("safety_score", 0) - token.get("holder_score", 0),  # Calculate from final
@@ -88,13 +88,20 @@ class SupabaseClient:
                 "ownership_renounced": token.get("ownership_renounced", False),
                 "liquidity_locked": token.get("liquidity_locked", False),
                 "mint_authority_disabled": token.get("mint_authority_disabled", False),
-                "analyzed_at": datetime.now(timezone.utc).isoformat(),
+                "last_analyzed_at": datetime.now(timezone.utc).isoformat(),
             }
             
             # Upsert (insert or update if exists)
+            # Supabase REST API: Use POST with Prefer header for upsert
+            # The on_conflict parameter tells Supabase which column to check for conflicts
+            # Note: The 'address' column must have a UNIQUE constraint in the database
+            headers = {
+                "Prefer": "resolution=merge-duplicates,return=representation"
+            }
             response = await self._client.post(
                 "/tokens",
                 json=token_data,
+                headers=headers,
                 params={"on_conflict": "address"}
             )
             
@@ -125,12 +132,12 @@ class SupabaseClient:
         
         try:
             params = {
-                "order": "analyzed_at.desc",
+                "order": "last_analyzed_at.desc",
                 "limit": limit
             }
             
             if min_score is not None:
-                params["score"] = f"gte.{min_score}"
+                params["final_score"] = f"gte.{min_score}"
             
             response = await self._client.get("/tokens", params=params)
             

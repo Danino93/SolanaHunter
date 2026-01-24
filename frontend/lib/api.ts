@@ -87,7 +87,8 @@ export interface Token {
   address: string
   symbol: string
   name: string
-  score: number
+  score?: number  // Legacy field
+  final_score?: number  // New field from database
   safety_score: number
   holder_score: number
   smart_money_score: number
@@ -98,7 +99,8 @@ export interface Token {
   ownership_renounced: boolean
   liquidity_locked: boolean
   mint_authority_disabled: boolean
-  analyzed_at: string
+  analyzed_at?: string  // Legacy field
+  last_analyzed_at?: string  // New field from database
 }
 
 export async function getTokens(params?: {
