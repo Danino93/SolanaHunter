@@ -29,7 +29,12 @@ import {
   Users,
   DollarSign,
   Activity,
+  LayoutDashboard,
+  Coins,
+  Wallet,
+  LineChart,
 } from 'lucide-react'
+import * as Tabs from '@radix-ui/react-tabs'
 
 // V2.0 Components
 import AnimatedCard from '@/components/AnimatedCard'
@@ -37,6 +42,7 @@ import ScoreGauge from '@/components/ScoreGauge'
 import TokenScoreBreakdown from '@/components/TokenScoreBreakdown'
 import LiquidityIndicator from '@/components/LiquidityIndicator'
 import TrendChart from '@/components/TrendChart'
+import PerformanceChart from '@/components/PerformanceChart'
 import WalletBadge from '@/components/WalletBadge'
 import TokenTable from '@/components/TokenTable'
 import SearchBar from '@/components/SearchBar'
@@ -92,6 +98,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [authChecked, setAuthChecked] = useState(false)
   const [selectedToken, setSelectedToken] = useState<Token | null>(null)
+  const [activeTab, setActiveTab] = useState('overview')
   
 
   // Authentication check
@@ -364,252 +371,400 @@ export default function Dashboard() {
         </motion.header>
 
         <main className="container mx-auto px-6 py-8">
-          {/* Featured Token & Stats */}
-          {!loading && featuredToken && (
-            <motion.div
-              variants={staggerContainer}
-              initial="initial"
-              animate="animate"
-              className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8"
-            >
-              {/* Featured Token */}
-              <motion.div variants={staggerItem} className="lg:col-span-2">
-                <AnimatedCard className="h-full" gradient glow>
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h3 className="text-2xl font-bold text-white mb-2">🏆 טוקן היום</h3>
-                      <p className="text-white/80">הטוקן עם הציון הגבוה ביותר כרגע</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold text-white">#{featuredToken.symbol}</div>
-                      <div className="text-white/80">{featuredToken.name}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <ScoreGauge
-                        score={featuredToken.score}
-                        grade={featuredToken.grade}
-                        category={featuredToken.category}
-                        size={180}
-                        showLabels={true}
-                      />
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between text-white">
-                        <span>מחיר:</span>
-                        <span className="font-bold">{formatPrice(featuredToken.price)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-white">
-                        <span>שינוי 24 שעות:</span>
-                        <div className="flex items-center gap-1">
-                          {featuredToken.change24h >= 0 ? (
-                            <TrendingUp className="w-4 h-4 text-green-400" />
-                          ) : (
-                            <TrendingDown className="w-4 h-4 text-red-400" />
-                          )}
-                          <span className={featuredToken.change24h >= 0 ? 'text-green-400' : 'text-red-400'}>
-                            {formatPercent(Math.abs(featuredToken.change24h))}
-                          </span>
+          {/* Tabs Navigation */}
+          <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs.List className="flex gap-2 mb-8 border-b border-gray-200 dark:border-gray-700">
+              <Tabs.Trigger
+                value="overview"
+                className="flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                סקירה כללית
+              </Tabs.Trigger>
+              <Tabs.Trigger
+                value="tokens"
+                className="flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              >
+                <Coins className="w-4 h-4" />
+                טוקנים
+              </Tabs.Trigger>
+              <Tabs.Trigger
+                value="wallets"
+                className="flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              >
+                <Wallet className="w-4 h-4" />
+                ארנקים חכמים
+              </Tabs.Trigger>
+              <Tabs.Trigger
+                value="analytics"
+                className="flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              >
+                <LineChart className="w-4 h-4" />
+                אנליטיקה
+              </Tabs.Trigger>
+            </Tabs.List>
+
+            {/* Tab: Overview */}
+            <Tabs.Content value="overview" className="space-y-8">
+              {/* Featured Token & Top Smart Wallet */}
+              {!loading && featuredToken && (
+                <motion.div
+                  variants={staggerContainer}
+                  initial="initial"
+                  animate="animate"
+                  className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+                >
+                  {/* Token of the Day */}
+                  <motion.div variants={staggerItem} className="lg:col-span-2">
+                    <AnimatedCard className="h-full" gradient glow>
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h3 className="text-2xl font-bold text-white mb-2">🏆 טוקן היום</h3>
+                          <p className="text-white/80">הטוקן עם הציון הגבוה ביותר כרגע</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-3xl font-bold text-white">#{featuredToken.symbol}</div>
+                          <div className="text-white/80">{featuredToken.name}</div>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-white">
-                        <span>נפח 24 שעות:</span>
-                        <span className="font-bold">{formatPrice(featuredToken.volume24h)}</span>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <ScoreGauge
+                            score={featuredToken.score}
+                            grade={featuredToken.grade}
+                            category={featuredToken.category}
+                            size={180}
+                            showLabels={true}
+                          />
+                        </div>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between text-white">
+                            <span>מחיר:</span>
+                            <span className="font-bold">{formatPrice(featuredToken.price)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-white">
+                            <span>שינוי 24 שעות:</span>
+                            <div className="flex items-center gap-1">
+                              {featuredToken.change24h >= 0 ? (
+                                <TrendingUp className="w-4 h-4 text-green-400" />
+                              ) : (
+                                <TrendingDown className="w-4 h-4 text-red-400" />
+                              )}
+                              <span className={featuredToken.change24h >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                {formatPercent(Math.abs(featuredToken.change24h))}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-white">
+                            <span>נפח 24 שעות:</span>
+                            <span className="font-bold">{formatPrice(featuredToken.volume24h)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-white">
+                            <span>שווי שוק:</span>
+                            <span className="font-bold">{formatPrice(featuredToken.marketCap)}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-white">
-                        <span>שווי שוק:</span>
-                        <span className="font-bold">{formatPrice(featuredToken.marketCap)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </AnimatedCard>
-              </motion.div>
+                    </AnimatedCard>
+                  </motion.div>
 
-              {/* Top Smart Wallet */}
-              {topWallet && (
-                <motion.div variants={staggerItem}>
-                  <AnimatedCard className="h-full">
-                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                      <Award className="w-5 h-5 text-purple-500" />
-                      ארנק חכם מוביל
-                    </h3>
-                    <WalletBadge
-                      address={topWallet.address}
-                      nickname={topWallet.nickname}
-                      trustScore={topWallet.trustScore}
-                      successRate={topWallet.successRate}
-                      totalTrades={topWallet.totalTrades}
-                      avgROI={topWallet.avgROI}
-                      achievements={topWallet.achievements}
-                      size="lg"
-                    />
-                  </AnimatedCard>
+                  {/* Top Smart Wallet */}
+                  {topWallet && (
+                    <motion.div variants={staggerItem}>
+                      <AnimatedCard className="h-full">
+                        <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                          <Award className="w-5 h-5 text-purple-500" />
+                          ארנק חכם מוביל
+                        </h3>
+                        <WalletBadge
+                          address={topWallet.address}
+                          nickname={topWallet.nickname}
+                          trustScore={topWallet.trustScore}
+                          successRate={topWallet.successRate}
+                          totalTrades={topWallet.totalTrades}
+                          avgROI={topWallet.avgROI}
+                          achievements={topWallet.achievements}
+                          size="lg"
+                        />
+                      </AnimatedCard>
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
-            </motion.div>
-          )}
 
-          {/* Stats Grid */}
-          <motion.div
-            variants={staggerContainer}
-            initial="initial"
-            animate="animate"
-            className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8"
-          >
-            {[
-              { label: 'סה"כ טוקנים', value: stats.totalTokens, icon: <Target className="w-5 h-5" />, color: 'blue', gradient: 'bg-gradient-to-r from-blue-500 to-blue-600' },
-              { label: 'ציון גבוה', value: stats.highScoreTokens, icon: <TrendingUp className="w-5 h-5" />, color: 'green', gradient: 'bg-gradient-to-r from-green-500 to-green-600' },
-              { label: 'ציון ממוצע', value: stats.averageScore, icon: <BarChart3 className="w-5 h-5" />, color: 'purple', gradient: 'bg-gradient-to-r from-purple-500 to-purple-600' },
-              { label: 'ארנקים חכמים', value: stats.smartWallets, icon: <Users className="w-5 h-5" />, color: 'orange', gradient: 'bg-gradient-to-r from-orange-500 to-orange-600' },
-              { label: 'מובילים', value: stats.topPerformers, icon: <Zap className="w-5 h-5" />, color: 'yellow', gradient: 'bg-gradient-to-r from-yellow-500 to-yellow-600' },
-              { label: 'סה"כ נפח', value: `$${formatNumber(stats.totalVolume)}`, icon: <DollarSign className="w-5 h-5" />, color: 'green', gradient: 'bg-gradient-to-r from-green-500 to-green-600' },
-              { label: 'ציון ארנק', value: stats.avgWalletScore, icon: <Users className="w-5 h-5" />, color: 'pink', gradient: 'bg-gradient-to-r from-pink-500 to-pink-600' },
-              { label: 'נזילות', value: `$${formatNumber(stats.totalLiquidity)}`, icon: <Activity className="w-5 h-5" />, color: 'cyan', gradient: 'bg-gradient-to-r from-cyan-500 to-cyan-600' },
-            ].map((stat, index) => (
-              <motion.div key={stat.label} variants={staggerItem}>
-                <AnimatedCard className="text-center p-4">
-                  <div className="flex flex-col items-center space-y-2">
-                    <div className={`p-2 rounded-lg ${stat.gradient} text-white`}>
-                      {stat.icon}
-                    </div>
-                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {stat.value}
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {stat.label}
-                    </div>
-                  </div>
-                </AnimatedCard>
+              {/* Stats Grid */}
+              <motion.div
+                variants={staggerContainer}
+                initial="initial"
+                animate="animate"
+                className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4"
+              >
+                {[
+                  { label: 'סה"כ טוקנים', value: stats.totalTokens, icon: <Target className="w-5 h-5" />, color: 'blue', gradient: 'bg-gradient-to-r from-blue-500 to-blue-600' },
+                  { label: 'ציון גבוה', value: stats.highScoreTokens, icon: <TrendingUp className="w-5 h-5" />, color: 'green', gradient: 'bg-gradient-to-r from-green-500 to-green-600' },
+                  { label: 'ציון ממוצע', value: stats.averageScore, icon: <BarChart3 className="w-5 h-5" />, color: 'purple', gradient: 'bg-gradient-to-r from-purple-500 to-purple-600' },
+                  { label: 'ארנקים חכמים', value: stats.smartWallets, icon: <Users className="w-5 h-5" />, color: 'orange', gradient: 'bg-gradient-to-r from-orange-500 to-orange-600' },
+                  { label: 'מובילים', value: stats.topPerformers, icon: <Zap className="w-5 h-5" />, color: 'yellow', gradient: 'bg-gradient-to-r from-yellow-500 to-yellow-600' },
+                  { label: 'סה"כ נפח', value: `$${formatNumber(stats.totalVolume)}`, icon: <DollarSign className="w-5 h-5" />, color: 'green', gradient: 'bg-gradient-to-r from-green-500 to-green-600' },
+                  { label: 'ציון ארנק', value: stats.avgWalletScore, icon: <Users className="w-5 h-5" />, color: 'pink', gradient: 'bg-gradient-to-r from-pink-500 to-pink-600' },
+                  { label: 'נזילות', value: `$${formatNumber(stats.totalLiquidity)}`, icon: <Activity className="w-5 h-5" />, color: 'cyan', gradient: 'bg-gradient-to-r from-cyan-500 to-cyan-600' },
+                ].map((stat, index) => (
+                  <motion.div key={stat.label} variants={staggerItem}>
+                    <AnimatedCard className="text-center p-4">
+                      <div className="flex flex-col items-center space-y-2">
+                        <div className={`p-2 rounded-lg ${stat.gradient} text-white`}>
+                          {stat.icon}
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {stat.value}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {stat.label}
+                        </div>
+                      </div>
+                    </AnimatedCard>
+                  </motion.div>
+                ))}
               </motion.div>
-            ))}
-          </motion.div>
 
-          {/* Performance Overview & Recent High-Score Tokens */}
-          {!loading && tokens.length > 0 && (
-            <motion.div
-              variants={staggerContainer}
-              initial="initial"
-              animate="animate"
-              className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8"
-            >
               {/* Performance Overview */}
-              <motion.div variants={staggerItem}>
-                <AnimatedCard>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                      <BarChart3 className="w-6 h-6 text-blue-500" />
-                      סקירת ביצועים
-                    </h2>
+              <AnimatedCard>
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                  <BarChart3 className="w-6 h-6 text-blue-500" />
+                  סקירת ביצועים
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl">
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">סה"כ טוקנים נסרקו</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalTokens}</p>
+                      </div>
+                      <Target className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl">
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">טוקנים עם ציון גבוה</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.highScoreTokens}</p>
+                      </div>
+                      <TrendingUp className="w-8 h-8 text-green-500" />
+                    </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Target className="w-5 h-5 text-blue-500" />
-                        <span className="text-gray-700 dark:text-gray-300">סה"כ טוקנים נסרקו</span>
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl">
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">ציון ממוצע</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.averageScore}/100</p>
                       </div>
-                      <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalTokens}</span>
+                      <BarChart3 className="w-8 h-8 text-purple-500" />
                     </div>
-                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <TrendingUp className="w-5 h-5 text-green-500" />
-                        <span className="text-gray-700 dark:text-gray-300">טוקנים עם ציון גבוה (85+)</span>
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-xl">
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">ארנקים חכמים פעילים</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.smartWallets}</p>
                       </div>
-                      <span className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.highScoreTokens}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <BarChart3 className="w-5 h-5 text-purple-500" />
-                        <span className="text-gray-700 dark:text-gray-300">ציון ממוצע</span>
-                      </div>
-                      <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.averageScore}/100</span>
-                    </div>
-                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Zap className="w-5 h-5 text-orange-500" />
-                        <span className="text-gray-700 dark:text-gray-300">טוקנים מובילים (+10%)</span>
-                      </div>
-                      <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.topPerformers}</span>
+                      <Users className="w-8 h-8 text-orange-500" />
                     </div>
                   </div>
-                </AnimatedCard>
-              </motion.div>
+                </div>
+              </AnimatedCard>
 
               {/* Recent High-Score Tokens */}
-              <motion.div variants={staggerItem}>
-                <AnimatedCard>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                      <Award className="w-6 h-6 text-yellow-500" />
-                      טוקנים עם ציון גבוה לאחרונה
-                    </h2>
-                  </div>
-                  <div className="space-y-3">
-                    {tokens
-                      .filter(t => t.score >= 70)
-                      .sort((a, b) => b.score - a.score)
-                      .slice(0, 5)
-                      .map((token, index) => (
-                        <motion.div
-                          key={token.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                          className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg hover:shadow-lg transition-all cursor-pointer"
-                          onClick={() => handleTokenSelect(token)}
-                        >
-                          <div className="flex items-center gap-4 flex-1">
-                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white font-bold">
-                              {index + 1}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-gray-900 dark:text-white">{token.symbol || 'UNKNOWN'}</span>
-                                <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                                  {token.grade}
-                                </span>
-                              </div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">
-                                {token.name || 'Unknown Token'}
-                              </div>
-                            </div>
+              <AnimatedCard>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Sparkles className="w-6 h-6 text-purple-500" />
+                    טוקנים עם ציון גבוה לאחרונה
+                  </h2>
+                  <button className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium">
+                    הצג הכל →
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {tokens
+                    .filter(t => t.score >= 85)
+                    .slice(0, 6)
+                    .map((token) => (
+                      <motion.div
+                        key={token.id}
+                        whileHover={{ scale: 1.02 }}
+                        className="p-4 bg-gradient-to-br from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 rounded-xl border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-lg transition-shadow"
+                        onClick={() => handleTokenSelect(token)}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-bold text-gray-900 dark:text-white">{token.symbol}</h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">{token.name}</p>
                           </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                              {token.score}
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">/100</div>
+                          <ScoreGauge
+                            score={token.score}
+                            grade={token.grade}
+                            category={token.category}
+                            size={60}
+                            showLabels={false}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <p className="text-gray-600 dark:text-gray-400">מחיר</p>
+                            <p className="font-semibold text-gray-900 dark:text-white">{formatPrice(token.price)}</p>
                           </div>
-                        </motion.div>
-                      ))}
-                    {tokens.filter(t => t.score >= 70).length === 0 && (
-                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        <Award className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                        <p>אין טוקנים עם ציון גבוה כרגע</p>
-                      </div>
-                    )}
-                  </div>
-                </AnimatedCard>
-              </motion.div>
-            </motion.div>
-          )}
+                          <div>
+                            <p className="text-gray-600 dark:text-gray-400">שינוי 24h</p>
+                            <p className={`font-semibold ${token.change24h >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {formatPercent(token.change24h)}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  {tokens.filter(t => t.score >= 85).length === 0 && (
+                    <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+                      אין טוקנים עם ציון גבוה כרגע
+                    </div>
+                  )}
+                </div>
+              </AnimatedCard>
+            </Tabs.Content>
 
-          {/* Tokens Table */}
-          <AnimatedCard>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Sparkles className="w-6 h-6 text-purple-500" />
-                רשימת טוקנים
-              </h2>
-            </div>
-            <TokenTable
-              tokens={tokens}
-              onTokenClick={handleTokenSelect}
-              showFilters={true}
-              showPagination={true}
-            />
-          </AnimatedCard>
+            {/* Tab: Tokens */}
+            <Tabs.Content value="tokens" className="space-y-8">
+              <AnimatedCard>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Sparkles className="w-6 h-6 text-purple-500" />
+                    רשימת טוקנים
+                  </h2>
+                </div>
+                <TokenTable
+                  tokens={tokens}
+                  onTokenClick={handleTokenSelect}
+                  showFilters={true}
+                  showPagination={true}
+                />
+              </AnimatedCard>
+            </Tabs.Content>
+
+            {/* Tab: Smart Wallets */}
+            <Tabs.Content value="wallets" className="space-y-8">
+              <AnimatedCard>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Wallet className="w-6 h-6 text-purple-500" />
+                    ארנקים חכמים
+                  </h2>
+                </div>
+                {smartWallets.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {smartWallets.map((wallet) => (
+                      <motion.div
+                        key={wallet.address}
+                        whileHover={{ scale: 1.02 }}
+                        className="p-6 bg-gradient-to-br from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 rounded-xl border border-gray-200 dark:border-gray-700"
+                      >
+                        <WalletBadge
+                          address={wallet.address}
+                          nickname={wallet.nickname}
+                          trustScore={wallet.trustScore}
+                          successRate={wallet.successRate}
+                          totalTrades={wallet.totalTrades}
+                          avgROI={wallet.avgROI}
+                          achievements={wallet.achievements}
+                          size="md"
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Wallet className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                    <p className="text-gray-600 dark:text-gray-400">אין ארנקים חכמים זמינים כרגע</p>
+                  </div>
+                )}
+              </AnimatedCard>
+            </Tabs.Content>
+
+            {/* Tab: Analytics */}
+            <Tabs.Content value="analytics" className="space-y-8">
+              <AnimatedCard>
+                <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                  <LineChart className="w-6 h-6 text-blue-500" />
+                  אנליטיקה וביצועים
+                </h2>
+                
+                {/* Performance Chart */}
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">גרף ביצועים</h3>
+                  <div className="bg-gradient-to-br from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                    <PerformanceChart
+                      data={tokens.map((token, index) => ({
+                        date: `טוקן ${index + 1}`,
+                        score: token.score,
+                        volume: token.volume24h,
+                      }))}
+                      timeRange="30d"
+                      type="area"
+                      height={300}
+                    />
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">ביצועים כללים</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">סה"כ טוקנים</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{stats.totalTokens}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">ציון ממוצע</span>
+                        <span className="font-bold text-gray-900 dark:text-white">{stats.averageScore}/100</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">טוקנים עם ציון גבוה</span>
+                        <span className="font-bold text-green-600 dark:text-green-400">{stats.highScoreTokens}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">נפח ונזילות</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">סה"כ נפח 24h</span>
+                        <span className="font-bold text-gray-900 dark:text-white">${formatNumber(stats.totalVolume)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">סה"כ נזילות</span>
+                        <span className="font-bold text-gray-900 dark:text-white">${formatNumber(stats.totalLiquidity)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">טוקנים מובילים</span>
+                        <span className="font-bold text-orange-600 dark:text-orange-400">{stats.topPerformers}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Smart Wallets Stats */}
+                <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">ארנקים חכמים</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">סה"כ ארנקים</span>
+                      <span className="font-bold text-gray-900 dark:text-white">{stats.smartWallets}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">ציון ממוצע</span>
+                      <span className="font-bold text-gray-900 dark:text-white">{stats.avgWalletScore}/100</span>
+                    </div>
+                  </div>
+                </div>
+              </AnimatedCard>
+            </Tabs.Content>
+          </Tabs.Root>
 
           {/* Loading State */}
           {loading && (
