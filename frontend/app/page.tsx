@@ -155,22 +155,35 @@ export default function Dashboard() {
     loadData()
     
     // Set up real-time updates if Supabase is configured
+    // Note: Real-time subscriptions might fail in production due to network restrictions
+    // This is optional and won't break the app if it fails
     if (isSupabaseConfigured && supabase) {
-      const channel = supabase
-        .channel('dashboard-updates')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'tokens' },
-          (payload) => {
-            console.log('🔄 עדכון טוקן:', payload)
-          }
-        )
-        .subscribe()
+      try {
+        const channel = supabase
+          .channel('dashboard-updates')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'tokens' },
+            (payload) => {
+              console.log('🔄 עדכון טוקן:', payload)
+            }
+          )
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              console.log('✅ Supabase real-time connected')
+            } else if (status === 'CHANNEL_ERROR') {
+              console.warn('⚠️ Supabase real-time connection failed (this is OK, app will still work)')
+            }
+          })
 
-      return () => {
-        if (supabase) {
-          supabase.removeChannel(channel)
+        return () => {
+          if (supabase && channel) {
+            supabase.removeChannel(channel)
+          }
         }
+      } catch (error) {
+        // Real-time is optional, don't break the app if it fails
+        console.warn('⚠️ Supabase real-time setup failed (this is OK):', error)
       }
     }
   }, [authChecked])
