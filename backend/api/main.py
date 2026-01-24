@@ -90,5 +90,5 @@ def run_server(host: str = "0.0.0.0", port: int = None):
     """Run the FastAPI server"""
     # Get port from environment variable (Railway/Heroku) or use provided/default
     if port is None:
-        port = int(os.environ.get("PORT", 8000))
+        port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host=host, port=port)
