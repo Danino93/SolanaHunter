@@ -39,7 +39,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",
-        "https://solana-hunter.vercel.app",  # Production domain
+        "https://solana-hunter.vercel.app",
+        "https://solana-hunter-git-main-danino93-projects-b5778f76.vercel.app",
     ],
     allow_origin_regex=r"https://.*\.vercel\.app",  # כל ה-Vercel preview deployments
     allow_credentials=True,
