@@ -5,33 +5,11 @@ Analyze token holder distribution and concentration
 📋 מה הקובץ הזה עושה:
 -------------------
 זה הקובץ שמנתח את פיזור המחזיקים של כל טוקן.
-
-הקובץ הזה:
-1. מוצא את כל המחזיקים של הטוקן (Top Holders)
-2. מחשב כמה אחוזים מהטוקנים בידי Top 10 מחזיקים
-3. בודק אם יש ריכוזיות (concentration) - סיכון למניפולציה
-4. מחזיר ציון מחזיקים (0-20 נקודות)
-
-🔧 פונקציות עיקריות:
-- analyze(address) - מנתח את כל המחזיקים
-- calculate_concentration(top_holders) - מחשב ריכוזיות
-- assign_holder_score(holders) - נותן ציון (0-20)
-
-💡 איך זה עובד:
-1. שולח בקשה ל-Solscan API לקבלת רשימת מחזיקים
-2. מחשב כמה אחוזים בידי Top 10 מחזיקים
-3. בודק כמה מחזיקים יש בסך הכל
-4. נותן ציון לפי:
-   - Top 10% < 50% = טוב (10 נקודות)
-   - יותר מ-1000 מחזיקים = טוב (10 נקודות)
-
-📝 הערות:
-- ריכוזיות גבוהה = סיכון למניפולציה במחיר
-- טוקן עם הרבה מחזיקים = יותר מבוזר = טוב יותר
-- משתמש ב-Solscan API לנתוני מחזיקים
+הקובץ תוקן כדי לשלוח API KEY ל-Solscan ולמנוע שגיאות 403.
 """
 
 import asyncio
+import os
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 import httpx
@@ -59,27 +37,18 @@ class HolderAnalysis:
 class HolderAnalyzer:
     """
     Advanced holder distribution analyzer
-    
-    Analyzes:
-    - Top 10/20 holder concentration
-    - Total holder count
-    - Distribution risk
-    - Holder score (0-20 points)
     """
     
     def __init__(self):
         self.http_client = httpx.AsyncClient(timeout=30.0)
+        # טעינת המפתח מהסביבה
+        self.api_key = os.getenv("SOLSCAN_API_KEY")
+        if not self.api_key:
+            logger.warning("⚠️ SOLSCAN_API_KEY not found in environment variables!")
     
     async def analyze(self, token_address: str, limit: int = 20) -> HolderAnalysis:
         """
         Analyze token holder distribution
-        
-        Args:
-            token_address: Token mint address
-            limit: Number of top holders to fetch
-        
-        Returns:
-            HolderAnalysis object with results
         """
         logger.info(f"🔍 Analyzing holders for {token_address[:20]}...")
         
@@ -128,35 +97,48 @@ class HolderAnalyzer:
     
     async def _fetch_holders(self, token_address: str, limit: int = 20) -> List[Dict]:
         """
-        Fetch top holders from Solscan API
-        
-        Args:
-            token_address: Token mint address
-            limit: Number of holders to fetch
-        
-        Returns:
-            List of holder dictionaries
+        Fetch top holders from Solscan API (Fixed with API Key)
         """
         try:
-            url = "https://api.solscan.io/token/holders"
+            # שימוש ב-API הציבורי של סולסקאן (דורש מפתח ב-Header)
+            url = "https://public-api.solscan.io/token/holders"
+            
             params = {
-                "token": token_address,
-                "offset": 0,
-                "limit": limit
+                "tokenAddress": token_address, # שים לב: הפרמטר שונה ל-tokenAddress בגרסאות מסוימות, אבל ננסה לשמור על תאימות
+                "limit": limit,
+                "offset": 0
             }
             
-            response = await self.http_client.get(url, params=params)
+            # התיקון החשוב: הוספת הכותרת עם המפתח
+            headers = {}
+            if self.api_key:
+                headers = {"token": self.api_key}
             
+            # ניסיון ראשון עם public-api
+            response = await self.http_client.get(url, params=params, headers=headers)
+            
+            # אם נכשל, ננסה את ה-API הישן יותר כגיבוי
+            if response.status_code != 200:
+                 url_backup = "https://api.solscan.io/token/holders"
+                 params_backup = {
+                    "token": token_address,
+                    "offset": 0,
+                    "limit": limit
+                 }
+                 response = await self.http_client.get(url_backup, params=params_backup, headers=headers)
+
             if response.status_code == 200:
                 data = response.json()
-                holders = data.get("data", [])
+                # Solscan לפעמים מחזיר את המידע בתוך data ולפעמים ישירות
+                holders = data.get("data", []) if isinstance(data, dict) else data
                 
                 # Sort by amount (descending)
-                holders.sort(key=lambda x: float(x.get("amount", 0)), reverse=True)
+                if holders:
+                    holders.sort(key=lambda x: float(x.get("amount", 0)), reverse=True)
                 
                 return holders
             else:
-                logger.warning(f"⚠️ Solscan API returned {response.status_code}")
+                logger.warning(f"⚠️ Solscan API returned {response.status_code} - {response.text}")
                 return []
                 
         except Exception as e:
@@ -166,19 +148,6 @@ class HolderAnalyzer:
     def _calculate_holder_score(self, analysis: HolderAnalysis) -> int:
         """
         Calculate holder distribution score (0-20 points)
-        
-        Scoring:
-        - Not concentrated (top 10 < 60%): 10 points
-        - Holder count > 1000: 10 points
-        - Holder count > 500: 7 points
-        - Holder count > 100: 5 points
-        - Holder count > 50: 3 points
-        
-        Args:
-            analysis: HolderAnalysis object
-        
-        Returns:
-            Score 0-20
         """
         score = 0
         
@@ -212,13 +181,6 @@ class HolderAnalyzer:
 async def analyze_holders(token_address: str, limit: int = 20) -> HolderAnalysis:
     """
     Convenience function to analyze holders
-    
-    Args:
-        token_address: Token mint address
-        limit: Number of top holders to fetch
-    
-    Returns:
-        HolderAnalysis object
     """
     analyzer = HolderAnalyzer()
     try:
@@ -232,6 +194,7 @@ if __name__ == "__main__":
     async def test():
         analyzer = HolderAnalyzer()
         try:
+            # BONK address for testing
             bonk_address = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
             result = await analyzer.analyze(bonk_address)
             
