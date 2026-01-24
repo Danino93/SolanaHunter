@@ -1120,14 +1120,18 @@ async def main():
         
         # Start FastAPI server in background
         import uvicorn
+        import os
         from threading import Thread
         
+        # Get port from environment variable (Railway/Heroku) or default to 8000
+        port = int(os.environ.get("PORT", 8000))
+        
         def run_api():
-            uvicorn.run(api_app, host="0.0.0.0", port=8000, log_level="info")
+            uvicorn.run(api_app, host="0.0.0.0", port=port, log_level="info")
         
         api_thread = Thread(target=run_api, daemon=True)
         api_thread.start()
-        logger.info("🚀 FastAPI server started on http://0.0.0.0:8000")
+        logger.info(f"🚀 FastAPI server started on http://0.0.0.0:{port}")
         
         # Start bot
         await bot.start()

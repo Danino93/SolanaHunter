@@ -20,6 +20,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+import os
 
 from api.routes import tokens, bot, portfolio, trading, analytics, settings, dexscreener
 from api.dependencies import set_solanahunter_instance
@@ -82,6 +83,9 @@ def init_app(solanahunter_instance):
     return app
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8000):
+def run_server(host: str = "0.0.0.0", port: int = None):
     """Run the FastAPI server"""
+    # Get port from environment variable (Railway/Heroku) or use provided/default
+    if port is None:
+        port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host=host, port=port)
