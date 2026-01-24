@@ -120,10 +120,10 @@ class SupabaseClient:
             )
             
             if response.status_code in (200, 201):
-                logger.debug(f"✅ Saved token {token.get('symbol')} to database")
+                logger.info(f"✅ Saved token {token.get('symbol', 'UNKNOWN')} to Supabase (status: {response.status_code})")
                 return True
             else:
-                logger.warning(f"⚠️ Failed to save token: {response.status_code} - {response.text}")
+                logger.warning(f"⚠️ Failed to save token {token.get('symbol', 'UNKNOWN')}: {response.status_code} - {response.text[:200]}")
                 return False
                 
         except Exception as e:

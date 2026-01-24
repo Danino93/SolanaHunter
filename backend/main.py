@@ -350,11 +350,11 @@ class SolanaHunter:
                                         async with self.supabase:
                                             saved = await self.supabase.save_token(token)
                                             if saved:
-                                                logger.debug(f"✅ Saved {token['symbol']} to database")
+                                                logger.info(f"✅ Saved {token.get('symbol', 'UNKNOWN')} ({token.get('address', '')[:8]}...) to Supabase")
                                             else:
-                                                logger.warning(f"⚠️ Failed to save {token['symbol']} to database")
+                                                logger.warning(f"⚠️ Failed to save {token.get('symbol', 'UNKNOWN')} to Supabase")
                                     except Exception as db_error:
-                                        logger.error(f"❌ Database error saving {token['symbol']}: {db_error}")
+                                        logger.error(f"❌ Database error saving {token.get('symbol', 'UNKNOWN')}: {db_error}")
                             except Exception as e:
                                 logger.warning(f"⚠️ Failed to analyze {token.get('symbol', 'unknown')}: {e}")
                         
