@@ -17,6 +17,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 interface ApiResponse<T> {
   data?: T
   error?: string
+  status?: number
 }
 
 async function apiRequest<T>(
@@ -24,23 +25,57 @@ async function apiRequest<T>(
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    // Build full URL
+    const url = endpoint.startsWith('http') 
+      ? endpoint 
+      : `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`
+    
+    // Add timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 seconds timeout
+    
+    const response = await fetch(url, {
       ...options,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         ...options?.headers,
       },
     })
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-      return { error: error.detail || error.error || 'Request failed' }
+    clearTimeout(timeoutId)
+
+    // Handle non-JSON responses
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      if (!response.ok) {
+        return { 
+          error: `HTTP ${response.status}: ${response.statusText}`,
+          status: response.status 
+        }
+      }
+      return { data: {} as T, status: response.status }
     }
 
-    const data = await response.json()
-    return { data }
+    const jsonData = await response.json()
+
+    if (!response.ok) {
+      return { 
+        error: jsonData.detail || jsonData.error || jsonData.message || 'Request failed',
+        status: response.status 
+      }
+    }
+
+    return { data: jsonData, status: response.status }
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' }
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return { error: 'Request timeout - please try again', status: 408 }
+      }
+      return { error: error.message || 'Network error' }
+    }
+    return { error: 'Unknown error occurred' }
   }
 }
 

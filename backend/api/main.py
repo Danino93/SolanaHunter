@@ -37,7 +37,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",  # Next.js dev server
         "http://localhost:3001",
-        "https://*.vercel.app",  # Vercel deployments
+        "https://*.vercel.app",  # Vercel deployments (wildcard)
+        "https://solana-hunter.vercel.app",  # Production domain
     ],
     allow_credentials=True,
     allow_methods=["*"],

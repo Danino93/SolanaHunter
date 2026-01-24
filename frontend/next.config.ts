@@ -1,19 +1,47 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  // Disable strict mode warnings for now (we'll enable later)
   reactStrictMode: true,
   
   // Optimize images
   images: {
-    domains: ['dexscreener.com', 'solscan.io'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'dexscreener.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'solscan.io',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+      },
+    ],
   },
   
-  // Enable experimental features if needed
-  // experimental: {
-  //   optimizePackageImports: ['lucide-react'],
-  // },
+  // Headers for security and CORS
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS,PATCH,DELETE,POST,PUT' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
+        ],
+      },
+    ];
+  },
+  
+  // Environment variables
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  },
 };
 
 export default nextConfig;

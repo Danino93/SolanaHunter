@@ -58,6 +58,8 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { showToast } from '@/components/Toast'
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/animations'
 import { formatPrice, formatPercent, formatNumber } from '@/lib/formatters'
+import { getTokens } from '@/lib/api'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 interface Token {
   id: string
@@ -203,17 +205,47 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Load mock data for demo
-      const mockTokens = generateMockTokens()
-      const mockWallets = generateMockWallets()
-      
-      setTokens(mockTokens)
-      setSmartWallets(mockWallets)
-      
-      // If Supabase is configured, try to load real data
+      // Try to load from Backend API first
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL
+      if (apiUrl && apiUrl !== 'http://localhost:8000') {
+        try {
+          const { data: apiTokens, error: apiError } = await getTokens({ limit: 50 })
+          if (!apiError && apiTokens?.tokens && apiTokens.tokens.length > 0) {
+            // Convert API tokens to our interface
+            const convertedTokens = apiTokens.tokens.map(token => ({
+              id: token.address,
+              address: token.address,
+              symbol: token.symbol,
+              name: token.name,
+              price: 0, // Will be fetched from DexScreener if needed
+              change24h: 0,
+              volume24h: 0,
+              liquidity: 0,
+              marketCap: 0,
+              score: token.score || 0,
+              safety_score: token.safety_score || 0,
+              holder_score: token.holder_score || 0,
+              liquidity_score: 0, // Will be calculated
+              volume_score: 0,
+              smart_money_score: token.smart_money_score || 0,
+              price_action_score: 0,
+              grade: token.grade || 'C',
+              category: token.category || 'FAIR',
+              holders: token.holder_count || 0,
+              smartMoney: 0,
+              lastSeen: token.analyzed_at || new Date().toISOString(),
+              trend: Array.from({ length: 10 }, () => Math.random() * 100),
+            }))
+            setTokens(convertedTokens)
+            setLoading(false)
+            return
+          }
+        } catch (apiError) {
+          console.warn('API call failed, falling back to Supabase:', apiError)
+        }
+      }
+
+      // Fallback to Supabase
       if (isSupabaseConfigured && supabase) {
         try {
           const { data: realTokens, error } = await supabase
@@ -225,28 +257,49 @@ export default function Dashboard() {
           if (!error && realTokens && realTokens.length > 0) {
             // Convert real data to match our interface
             const convertedTokens = realTokens.map(token => ({
-              ...token,
-              price: Math.random() * 100,
-              change24h: (Math.random() - 0.5) * 50,
-              volume24h: Math.random() * 1000000,
-              liquidity: Math.random() * 500000,
-              marketCap: Math.random() * 50000000,
-              liquidity_score: Math.floor(Math.random() * 25) + 15,
-              volume_score: Math.floor(Math.random() * 15) + 8,
-              price_action_score: Math.floor(Math.random() * 5) + 2,
-              holders: token.holder_count || Math.floor(Math.random() * 50000),
-              smartMoney: Math.floor(Math.random() * 20),
-              lastSeen: token.analyzed_at,
+              id: token.address,
+              address: token.address,
+              symbol: token.symbol,
+              name: token.name,
+              price: 0,
+              change24h: 0,
+              volume24h: 0,
+              liquidity: 0,
+              marketCap: 0,
+              score: token.score || 0,
+              safety_score: token.safety_score || 0,
+              holder_score: token.holder_score || 0,
+              liquidity_score: 0,
+              volume_score: 0,
+              smart_money_score: token.smart_money_score || 0,
+              price_action_score: 0,
+              grade: token.grade || 'C',
+              category: token.category || 'FAIR',
+              holders: token.holder_count || 0,
+              smartMoney: 0,
+              lastSeen: token.analyzed_at || new Date().toISOString(),
               trend: Array.from({ length: 10 }, () => Math.random() * 100),
             }))
             setTokens(convertedTokens)
+            setLoading(false)
+            return
           }
         } catch (error) {
-          console.error('Error loading real data:', error)
+          console.error('Error loading from Supabase:', error)
         }
       }
+
+      // Final fallback: Use mock data for demo
+      const mockTokens = generateMockTokens()
+      const mockWallets = generateMockWallets()
+      
+      setTokens(mockTokens)
+      setSmartWallets(mockWallets)
     } catch (error) {
       console.error('Failed to load data:', error)
+      // Use mock data as last resort
+      setTokens(generateMockTokens())
+      setSmartWallets(generateMockWallets())
     } finally {
       setLoading(false)
     }
