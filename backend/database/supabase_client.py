@@ -32,24 +32,38 @@ class SupabaseClient:
         
         if not self.url or not self.key:
             logger.warning("⚠️ Supabase not configured - database operations disabled")
+            logger.warning(f"   SUPABASE_URL: {'Set' if self.url else 'Missing'}")
+            logger.warning(f"   SUPABASE_KEY: {'Set' if self.key else 'Missing'}")
             self.enabled = False
         else:
+            # Clean up URL - remove trailing slash and /rest/v1 if present
+            url = self.url.strip().rstrip('/')
+            if url.endswith('/rest/v1'):
+                url = url[:-8]
+            self.url = url
             self.enabled = True
             self._base_url = f"{self.url}/rest/v1"
+            logger.info(f"✅ Supabase configured: {self.url}")
     
     async def __aenter__(self):
         """Async context manager entry"""
         if self.enabled:
-            self._client = httpx.AsyncClient(
-                base_url=self._base_url,
-                headers={
-                    "apikey": self.key,
-                    "Authorization": f"Bearer {self.key}",
-                    "Content-Type": "application/json",
-                    "Prefer": "return=representation"
-                },
-                timeout=30.0
-            )
+            try:
+                self._client = httpx.AsyncClient(
+                    base_url=self._base_url,
+                    headers={
+                        "apikey": self.key,
+                        "Authorization": f"Bearer {self.key}",
+                        "Content-Type": "application/json",
+                        "Prefer": "return=representation"
+                    },
+                    timeout=30.0
+                )
+                logger.debug(f"✅ Supabase client initialized: {self._base_url}")
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize Supabase client: {e}")
+                logger.error(f"   URL: {self._base_url}")
+                self._client = None
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -113,7 +127,12 @@ class SupabaseClient:
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Error saving token to database: {e}")
+            error_msg = str(e)
+            if "Name or service not known" in error_msg or "Errno -2" in error_msg:
+                logger.error(f"❌ DNS Error - Cannot resolve Supabase URL: {self.url}")
+                logger.error(f"   Check SUPABASE_URL in Railway: should be 'https://[project].supabase.co'")
+            else:
+                logger.error(f"❌ Error saving token to database: {e}")
             return False
     
     async def get_tokens(self, limit: int = 100, min_score: Optional[int] = None) -> List[Dict]:

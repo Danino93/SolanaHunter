@@ -121,19 +121,26 @@ export default function Dashboard() {
             { event: '*', schema: 'public', table: 'tokens' },
             (payload) => {
               console.log('🔄 עדכון טוקן:', payload)
+              // Reload data when token is updated
+              loadData()
             }
           )
           .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
               console.log('✅ Supabase real-time connected')
             } else if (status === 'CHANNEL_ERROR') {
+              // This is OK - real-time is optional
               console.warn('⚠️ Supabase real-time connection failed (this is OK, app will still work)')
             }
           })
 
         return () => {
           if (supabase && channel) {
-            supabase.removeChannel(channel)
+            try {
+              supabase.removeChannel(channel)
+            } catch (e) {
+              // Ignore cleanup errors
+            }
           }
         }
       } catch (error) {
@@ -191,13 +198,13 @@ export default function Dashboard() {
         }
       }
 
-      // Fallback to Supabase
+      // Fallback to Supabase (only if API failed)
       if (isSupabaseConfigured && supabase) {
         try {
           const { data: realTokens, error } = await supabase
             .from('tokens')
             .select('*')
-            .order('score', { ascending: false })
+            .order('final_score', { ascending: false })
             .limit(50)
 
           if (!error && realTokens && realTokens.length > 0) {
