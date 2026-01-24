@@ -1,0 +1,61 @@
+# Vercel ignore file
+# Files and directories to exclude from Vercel deployment
+
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Build outputs (handled by Vercel)
+.next/
+out/
+dist/
+build/
+
+# Environment files (use Vercel Environment Variables instead)
+.env
+.env.*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output
+.jest
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary files
+tmp/
+temp/
+
+# Local development
+.cache/
+.turbo/
+.next/cache/
+
+# TypeScript
+*.tsbuildinfo
