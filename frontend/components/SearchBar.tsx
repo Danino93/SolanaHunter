@@ -31,7 +31,7 @@ interface SearchBarProps {
 }
 
 export default function SearchBar({
-  placeholder = 'Search tokens, addresses, or smart wallets...',
+  placeholder = 'חפש טוקנים, כתובות או ארנקים חכמים...',
   onSearch,
   onSelect,
   className = '',
@@ -353,8 +353,8 @@ export default function SearchBar({
           >
             <div className="text-gray-500 dark:text-gray-400">
               <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No results found for "{query}"</p>
-              <p className="text-xs mt-1">Try searching for tokens, addresses, or wallets</p>
+              <p className="text-sm">לא נמצאו תוצאות עבור "{query}"</p>
+              <p className="text-xs mt-1">נסה לחפש טוקנים, כתובות או ארנקים</p>
             </div>
           </motion.div>
         )}

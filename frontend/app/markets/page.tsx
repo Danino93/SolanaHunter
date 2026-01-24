@@ -35,6 +35,7 @@ import {
   ArrowDownRight
 } from 'lucide-react'
 import { showToast } from '@/components/Toast'
+import { getTrendingTokens, getNewTokens, searchDexTokens } from '@/lib/api'
 
 interface DexToken {
   pair_address: string
@@ -82,16 +83,17 @@ export default function MarketsPage() {
   const loadTrending = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/api/dexscreener/trending?limit=50')
-      if (response.ok) {
-        const data = await response.json()
-        setTokens(data.tokens || [])
-      } else {
+      const { data, error } = await getTrendingTokens(50)
+      if (error) {
         showToast('אופס, שגיאה בטעינת טוקנים טרנדיים', 'error')
+        setTokens([])
+      } else {
+        setTokens(data?.tokens || [])
       }
     } catch (error) {
       console.error('Error loading trending tokens:', error)
       showToast('אופס, שגיאה בטעינת טוקנים טרנדיים', 'error')
+      setTokens([])
     } finally {
       setLoading(false)
     }
@@ -100,16 +102,17 @@ export default function MarketsPage() {
   const loadNew = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/api/dexscreener/new?limit=50')
-      if (response.ok) {
-        const data = await response.json()
-        setTokens(data.tokens || [])
-      } else {
+      const { data, error } = await getNewTokens(50)
+      if (error) {
         showToast('אופס, שגיאה בטעינת טוקנים חדשים', 'error')
+        setTokens([])
+      } else {
+        setTokens(data?.tokens || [])
       }
     } catch (error) {
       console.error('Error loading new tokens:', error)
       showToast('אופס, שגיאה בטעינת טוקנים חדשים', 'error')
+      setTokens([])
     } finally {
       setLoading(false)
     }
@@ -123,17 +126,18 @@ export default function MarketsPage() {
 
     setSearching(true)
     try {
-      const response = await fetch(`http://localhost:8000/api/dexscreener/search?q=${encodeURIComponent(searchTerm)}`)
-      if (response.ok) {
-        const data = await response.json()
-        setSearchResults(data.tokens || [])
-        setActiveTab('search')
-      } else {
+      const { data, error } = await searchDexTokens(searchTerm)
+      if (error) {
         showToast('אופס, שגיאה בחיפוש', 'error')
+        setSearchResults([])
+      } else {
+        setSearchResults(data?.tokens || [])
+        setActiveTab('search')
       }
     } catch (error) {
       console.error('Error searching tokens:', error)
       showToast('אופס, שגיאה בחיפוש', 'error')
+      setSearchResults([])
     } finally {
       setSearching(false)
     }
@@ -300,9 +304,9 @@ export default function MarketsPage() {
                       <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">מטבע</th>
                       <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">מחיר</th>
                       <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">שינוי 24h</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">Volume 24h</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">Liquidity</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">DEX</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">נפח 24 שעות</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">נזילות</th>
+                      <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">בורסה</th>
                       <th className="px-6 py-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-300">פעולות</th>
                     </tr>
                   </thead>
@@ -399,7 +403,7 @@ export default function MarketsPage() {
 
               <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700 shadow-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">סה"כ Volume 24h</p>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">סה"כ נפח 24 שעות</p>
                   <DollarSign className="w-5 h-5 text-green-500" />
                 </div>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">
@@ -409,7 +413,7 @@ export default function MarketsPage() {
 
               <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700 shadow-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">סה"כ Liquidity</p>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">סה"כ נזילות</p>
                   <TrendingUp className="w-5 h-5 text-purple-500" />
                 </div>
                 <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">

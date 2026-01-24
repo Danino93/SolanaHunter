@@ -196,7 +196,7 @@ export default function TokenTable({
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search tokens..."
+                placeholder="חפש טוקנים..."
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                 className="pl-10 pr-4 py-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -207,7 +207,7 @@ export default function TokenTable({
             <div className="flex items-center space-x-4">
               {/* Score Range */}
               <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Score:</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">ציון:</span>
                 <input
                   type="range"
                   min="0"
@@ -234,7 +234,7 @@ export default function TokenTable({
                 className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Export
+                ייצא
               </motion.button>
             </div>
           </div>
@@ -246,17 +246,17 @@ export default function TokenTable({
         <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
-              <SortableHeader field="name">Token</SortableHeader>
-              <SortableHeader field="price">Price</SortableHeader>
-              <SortableHeader field="change24h">24h %</SortableHeader>
-              <SortableHeader field="volume24h">Volume</SortableHeader>
-              <SortableHeader field="liquidity">Liquidity</SortableHeader>
-              <SortableHeader field="score">Score</SortableHeader>
-              <SortableHeader field="holders">Holders</SortableHeader>
-              <SortableHeader field="smartMoney">Smart Money</SortableHeader>
-              <SortableHeader field="lastSeen">Last Seen</SortableHeader>
+              <SortableHeader field="name">טוקן</SortableHeader>
+              <SortableHeader field="price">מחיר</SortableHeader>
+              <SortableHeader field="change24h">שינוי 24 שעות</SortableHeader>
+              <SortableHeader field="volume24h">נפח</SortableHeader>
+              <SortableHeader field="liquidity">נזילות</SortableHeader>
+              <SortableHeader field="score">ציון</SortableHeader>
+              <SortableHeader field="holders">מחזיקים</SortableHeader>
+              <SortableHeader field="smartMoney">ארנקים חכמים</SortableHeader>
+              <SortableHeader field="lastSeen">נראה לאחרונה</SortableHeader>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Actions
+                פעולות
               </th>
             </tr>
           </thead>
@@ -372,7 +372,7 @@ export default function TokenTable({
                           whileTap={{ scale: 0.9 }}
                           onClick={(e) => handleCopyAddress(token.address, e)}
                           className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                          title="Copy address"
+                          title="העתק כתובת"
                         >
                           <Copy className="w-4 h-4" />
                         </motion.button>
@@ -381,7 +381,7 @@ export default function TokenTable({
                           whileTap={{ scale: 0.9 }}
                           onClick={(e) => handleOpenExplorer(token.address, e)}
                           className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                          title="View on Explorer"
+                          title="צפה ב-Explorer"
                         >
                           <ExternalLink className="w-4 h-4" />
                         </motion.button>
@@ -390,7 +390,7 @@ export default function TokenTable({
                           whileTap={{ scale: 0.9 }}
                           onClick={() => onTokenClick?.(token)}
                           className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                          title="View details"
+                          title="צפה בפרטים"
                         >
                           <Eye className="w-4 h-4" />
                         </motion.button>
@@ -409,7 +409,7 @@ export default function TokenTable({
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-700 dark:text-gray-300">
-              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredAndSortedTokens.length)} of {filteredAndSortedTokens.length} results
+              מציג {(currentPage - 1) * pageSize + 1} עד {Math.min(currentPage * pageSize, filteredAndSortedTokens.length)} מתוך {filteredAndSortedTokens.length} תוצאות
             </div>
             <div className="flex items-center space-x-2">
               <motion.button
@@ -419,7 +419,7 @@ export default function TokenTable({
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                Previous
+                קודם
               </motion.button>
               
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -450,7 +450,7 @@ export default function TokenTable({
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                Next
+                הבא
               </motion.button>
             </div>
           </div>
@@ -462,8 +462,8 @@ export default function TokenTable({
         <div className="px-6 py-12 text-center">
           <div className="text-gray-500 dark:text-gray-400">
             <Filter className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium mb-2">No tokens found</h3>
-            <p className="text-sm">Try adjusting your search or filter criteria</p>
+            <h3 className="text-lg font-medium mb-2">לא נמצאו טוקנים</h3>
+            <p className="text-sm">נסה לשנות את החיפוש או את הפילטרים</p>
           </div>
         </div>
       )}

@@ -71,45 +71,45 @@ export default function AnalyticsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700 shadow-xl">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Win Rate</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">אחוז הצלחה</p>
                 <TrendingUp className="w-5 h-5 text-green-500" />
               </div>
               <p className="text-3xl font-bold text-green-500">0%</p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">0 wins / 0 trades</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">0 הצלחות / 0 עסקאות</p>
             </div>
 
             <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700 shadow-xl">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total P&L</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">סה"כ רווח/הפסד</p>
                 <DollarSign className="w-5 h-5 text-blue-500" />
               </div>
               <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">$0.00</p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">All time</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">מאז ומעולם</p>
             </div>
 
             <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700 shadow-xl">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Trades</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">סה"כ עסקאות</p>
                 <BarChart3 className="w-5 h-5 text-purple-500" />
               </div>
               <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">0</p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Completed</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">הושלמו</p>
             </div>
 
             <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700 shadow-xl">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Avg Profit</p>
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">רווח ממוצע</p>
                 <TrendingUp className="w-5 h-5 text-yellow-500" />
               </div>
               <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">$0.00</p>
-              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Per trade</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">לעסקה</p>
             </div>
           </div>
 
           {/* Charts Placeholder */}
           <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700 shadow-xl">
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">
-              Performance Chart
+              גרף ביצועים
             </h2>
             <div className="h-64 flex items-center justify-center bg-slate-100 dark:bg-slate-900 rounded-xl">
               <p className="text-slate-500 dark:text-slate-400">

@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react'
+import { getPositions } from '@/lib/api'
 
 interface Position {
   id: string
@@ -67,13 +68,12 @@ export default function PortfolioPage() {
   const loadPositions = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/api/portfolio')
-      if (response.ok) {
-        const data = await response.json()
-        setPositions(data.positions || [])
-      } else {
-        console.error('Failed to load positions')
+      const { data, error } = await getPositions()
+      if (error) {
+        console.error('Failed to load positions:', error)
         setPositions([])
+      } else {
+        setPositions(data?.positions || [])
       }
     } catch (error) {
       console.error('Error loading positions:', error)
