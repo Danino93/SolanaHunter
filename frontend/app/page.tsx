@@ -33,8 +33,15 @@ import {
   Coins,
   Wallet,
   LineChart,
+  Plus,
+  Download,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Flame,
 } from 'lucide-react'
 import * as Tabs from '@radix-ui/react-tabs'
+import CountUp from 'react-countup'
 
 // V2.0 Components
 import AnimatedCard from '@/components/AnimatedCard'
@@ -99,6 +106,9 @@ export default function Dashboard() {
   const [authChecked, setAuthChecked] = useState(false)
   const [selectedToken, setSelectedToken] = useState<Token | null>(null)
   const [activeTab, setActiveTab] = useState('overview')
+  const [carouselIndex, setCarouselIndex] = useState(0)
+  const [carouselPaused, setCarouselPaused] = useState(false)
+  const [floatingMenuOpen, setFloatingMenuOpen] = useState(false)
   
 
   // Authentication check
@@ -109,6 +119,17 @@ export default function Dashboard() {
       setAuthChecked(true)
     }
   }, [router])
+
+  // Auto-scroll carousel
+  useEffect(() => {
+    if (carouselPaused || tokens.length === 0) return
+    
+    const interval = setInterval(() => {
+      setCarouselIndex((prev) => (prev < Math.min(4, tokens.length - 1) ? prev + 1 : 0))
+    }, 5000) // Change slide every 5 seconds
+    
+    return () => clearInterval(interval)
+  }, [carouselPaused, tokens.length])
 
   // Load data after authentication
   useEffect(() => {
@@ -406,6 +427,131 @@ export default function Dashboard() {
 
             {/* Tab: Overview */}
             <Tabs.Content value="overview" className="space-y-8">
+              {/* Hero Section - עם CountUp animations ו-Pulse glow effects */}
+              <motion.div
+                variants={staggerContainer}
+                initial="initial"
+                animate="animate"
+                className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 p-8 lg:p-12"
+              >
+                {/* Animated Background */}
+                <motion.div
+                  className="absolute inset-0 opacity-20"
+                  animate={{
+                    backgroundPosition: ['0% 0%', '100% 100%'],
+                  }}
+                  transition={{
+                    duration: 20,
+                    repeat: Infinity,
+                    repeatType: 'reverse',
+                  }}
+                  style={{
+                    backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255,255,255,0.3) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(255,255,255,0.2) 0%, transparent 50%)',
+                  }}
+                />
+                
+                <div className="relative z-10">
+                  <motion.h2
+                    variants={staggerItem}
+                    className="text-4xl lg:text-5xl font-bold text-white mb-4"
+                  >
+                    🚀 דשבורד גילוי טוקנים מתקדם
+                  </motion.h2>
+                  <motion.p
+                    variants={staggerItem}
+                    className="text-xl text-white/90 mb-8"
+                  >
+                    נתונים בזמן אמת • ניתוח מתקדם • גילוי מוקדם
+                  </motion.p>
+
+                  {/* Live Stats Cards */}
+                  <motion.div
+                    variants={staggerContainer}
+                    className="grid grid-cols-2 md:grid-cols-4 gap-4"
+                  >
+                    {[
+                      { label: 'סה"כ טוקנים', value: stats.totalTokens, icon: <Target className="w-6 h-6" />, color: 'from-blue-400 to-cyan-400' },
+                      { label: 'ציון ממוצע', value: stats.averageScore, icon: <BarChart3 className="w-6 h-6" />, color: 'from-purple-400 to-pink-400' },
+                      { label: 'שיעור הצלחה', value: stats.totalTokens > 0 ? Math.round((stats.highScoreTokens / stats.totalTokens) * 100) : 0, suffix: '%', icon: <TrendingUp className="w-6 h-6" />, color: 'from-green-400 to-emerald-400' },
+                      { label: 'סה"כ נפח', value: stats.totalVolume, prefix: '$', format: true, icon: <DollarSign className="w-6 h-6" />, color: 'from-yellow-400 to-orange-400' },
+                    ].map((stat, index) => (
+                      <motion.div
+                        key={stat.label}
+                        variants={staggerItem}
+                        className="relative"
+                      >
+                        <AnimatedCard className="bg-white/10 backdrop-blur-lg border-white/20 text-white" glow>
+                          <div className="flex flex-col items-center text-center space-y-2">
+                            <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color} text-white shadow-lg`}>
+                              {stat.icon}
+                            </div>
+                            <div className="text-3xl font-bold">
+                              {stat.prefix}
+                              <CountUp
+                                end={stat.value}
+                                duration={2}
+                                decimals={stat.format ? 2 : 0}
+                                separator=","
+                              />
+                              {stat.suffix}
+                            </div>
+                            <div className="text-sm text-white/80">{stat.label}</div>
+                          </div>
+                          {/* Pulse Glow Effect */}
+                          <motion.div
+                            className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${stat.color} opacity-0`}
+                            animate={{
+                              opacity: [0, 0.3, 0],
+                              scale: [1, 1.05, 1],
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              delay: index * 0.5,
+                            }}
+                          />
+                        </AnimatedCard>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </div>
+              </motion.div>
+
+              {/* Quick Stats Bar - מיני כרטיסים */}
+              <motion.div
+                variants={staggerContainer}
+                initial="initial"
+                animate="animate"
+                className="overflow-x-auto"
+              >
+                <div className="flex gap-4 min-w-max pb-2">
+                  {[
+                    { label: 'שינוי 24 שעות', value: '+12.5%', icon: <TrendingUp className="w-5 h-5" />, color: 'green', gradient: 'from-green-500 to-emerald-500' },
+                    { label: 'טוקנים חדשים', value: stats.totalTokens > 0 ? `+${Math.min(stats.totalTokens, 99)}` : '0', icon: <Sparkles className="w-5 h-5" />, color: 'blue', gradient: 'from-blue-500 to-cyan-500' },
+                    { label: 'טוקנים חמים', value: stats.topPerformers, icon: <Flame className="w-5 h-5" />, color: 'orange', gradient: 'from-orange-500 to-red-500' },
+                    { label: 'ארנקים פעילים', value: stats.smartWallets, icon: <Users className="w-5 h-5" />, color: 'purple', gradient: 'from-purple-500 to-pink-500' },
+                  ].map((stat, index) => (
+                    <motion.div
+                      key={stat.label}
+                      variants={staggerItem}
+                      className="flex-shrink-0"
+                    >
+                      <AnimatedCard className="min-w-[180px] text-center p-4">
+                        <div className={`inline-flex p-2 rounded-lg bg-gradient-to-r ${stat.gradient} text-white mb-2`}>
+                          {stat.icon}
+                        </div>
+                        <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                          {stat.value}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {stat.label}
+                        </div>
+                      </AnimatedCard>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+
               {/* Featured Token & Top Smart Wallet */}
               {!loading && featuredToken && (
                 <motion.div
@@ -569,6 +715,174 @@ export default function Dashboard() {
                   </div>
                 </div>
               </AnimatedCard>
+
+              {/* Featured Tokens Carousel - Top 5 tokens עם auto-scroll */}
+              {tokens.length > 0 && (
+                <AnimatedCard>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                      <Sparkles className="w-6 h-6 text-purple-500" />
+                      טוקנים מובילים
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCarouselIndex((prev) => (prev > 0 ? prev - 1 : Math.min(4, tokens.length - 1)))}
+                        className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setCarouselIndex((prev) => (prev < Math.min(4, tokens.length - 1) ? prev + 1 : 0))}
+                        className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="relative overflow-hidden rounded-xl">
+                    <motion.div
+                      className="flex gap-4"
+                      animate={{
+                        x: `-${carouselIndex * 100}%`,
+                      }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 300,
+                        damping: 30,
+                      }}
+                      onHoverStart={() => setCarouselPaused(true)}
+                      onHoverEnd={() => setCarouselPaused(false)}
+                    >
+                      {tokens
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 5)
+                        .map((token, index) => (
+                          <motion.div
+                            key={token.id}
+                            className="flex-shrink-0 w-full"
+                            whileHover={{ scale: 1.02 }}
+                          >
+                            <div
+                              className="p-6 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 rounded-xl border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-xl transition-all"
+                              onClick={() => handleTokenSelect(token)}
+                            >
+                              <div className="flex items-center justify-between mb-4">
+                                <div>
+                                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{token.symbol}</h3>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">{token.name}</p>
+                                </div>
+                                <ScoreGauge
+                                  score={token.score}
+                                  grade={token.grade}
+                                  category={token.category}
+                                  size={80}
+                                  showLabels={true}
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">מחיר</p>
+                                  <p className="text-lg font-bold text-gray-900 dark:text-white">{formatPrice(token.price)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">שינוי 24 שעות</p>
+                                  <p className={`text-lg font-bold ${token.change24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {formatPercent(token.change24h)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">נפח 24 שעות</p>
+                                  <p className="text-lg font-bold text-gray-900 dark:text-white">{formatPrice(token.volume24h)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400">שווי שוק</p>
+                                  <p className="text-lg font-bold text-gray-900 dark:text-white">{formatPrice(token.marketCap)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                    </motion.div>
+                  </div>
+                </AnimatedCard>
+              )}
+
+              {/* Charts Section - 3 עמודות */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Market Overview - Line chart */}
+                <AnimatedCard>
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <LineChart className="w-5 h-5 text-blue-500" />
+                    סקירת שוק
+                  </h3>
+                  <div className="h-64">
+                    {tokens.length > 0 ? (
+                      <PerformanceChart
+                        data={tokens.slice(0, 7).map((token, index) => ({
+                          date: `יום ${index + 1}`,
+                          score: token.score,
+                          volume: token.volume24h,
+                        }))}
+                        type="line"
+                        height={250}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-400">
+                        אין נתונים זמינים
+                      </div>
+                    )}
+                  </div>
+                </AnimatedCard>
+
+                {/* Volume Trend - Bar chart */}
+                <AnimatedCard>
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-green-500" />
+                    מגמת נפח
+                  </h3>
+                  <div className="h-64">
+                    {tokens.length > 0 ? (
+                      <PerformanceChart
+                        data={tokens.slice(0, 7).map((token, index) => ({
+                          date: token.symbol,
+                          volume: token.volume24h,
+                        }))}
+                        type="area"
+                        height={250}
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-400">
+                        אין נתונים זמינים
+                      </div>
+                    )}
+                  </div>
+                </AnimatedCard>
+
+                {/* Score Distribution - Donut chart */}
+                <AnimatedCard>
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <Target className="w-5 h-5 text-purple-500" />
+                    התפלגות ציונים
+                  </h3>
+                  <div className="h-64 flex items-center justify-center">
+                    <div className="grid grid-cols-2 gap-4 w-full">
+                      {[
+                        { label: 'מצוין (85+)', count: tokens.filter(t => t.score >= 85).length, color: 'from-green-500 to-emerald-500' },
+                        { label: 'טוב (70-84)', count: tokens.filter(t => t.score >= 70 && t.score < 85).length, color: 'from-blue-500 to-cyan-500' },
+                        { label: 'בינוני (60-69)', count: tokens.filter(t => t.score >= 60 && t.score < 70).length, color: 'from-amber-500 to-orange-500' },
+                        { label: 'נמוך (<60)', count: tokens.filter(t => t.score < 60).length, color: 'from-red-500 to-rose-500' },
+                      ].map((item) => (
+                        <div key={item.label} className="text-center">
+                          <div className={`h-20 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-2`}>
+                            <span className="text-3xl font-bold text-white">{item.count}</span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{item.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </AnimatedCard>
+              </div>
 
               {/* Recent High-Score Tokens */}
               <AnimatedCard>
@@ -808,6 +1122,87 @@ export default function Dashboard() {
             </motion.div>
           )}
         </main>
+
+        {/* Floating Action Button - Quick actions */}
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          className="fixed bottom-8 left-8 z-50"
+        >
+          <motion.div
+            className="relative"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <motion.button
+              className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white shadow-2xl flex items-center justify-center"
+              whileHover={{ boxShadow: '0 0 30px rgba(59, 130, 246, 0.6)' }}
+              onClick={() => {
+                setFloatingMenuOpen(!floatingMenuOpen)
+              }}
+            >
+              <Plus className="w-8 h-8" />
+            </motion.button>
+
+            {/* Menu Items */}
+            <AnimatePresence>
+              {floatingMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="absolute bottom-20 left-0 space-y-2"
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.05, x: -5 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      loadData()
+                      setFloatingMenuOpen(false)
+                      showToast('סריקה חדשה התחילה', 'success')
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Search className="w-5 h-5 text-blue-500" />
+                    <span>סרוק עכשיו</span>
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05, x: -5 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setActiveTab('wallets')
+                      setFloatingMenuOpen(false)
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Wallet className="w-5 h-5 text-purple-500" />
+                    <span>הוסף ארנק</span>
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05, x: -5 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      const dataStr = JSON.stringify(tokens, null, 2)
+                      const dataBlob = new Blob([dataStr], { type: 'application/json' })
+                      const url = URL.createObjectURL(dataBlob)
+                      const link = document.createElement('a')
+                      link.href = url
+                      link.download = `solana-hunter-tokens-${new Date().toISOString()}.json`
+                      link.click()
+                      URL.revokeObjectURL(url)
+                      setFloatingMenuOpen(false)
+                      showToast('נתונים יוצאו בהצלחה', 'success')
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Download className="w-5 h-5 text-green-500" />
+                    <span>ייצא נתונים</span>
+                  </motion.button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </motion.div>
       </div>
     </DashboardLayout>
   )
