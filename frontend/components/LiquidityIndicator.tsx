@@ -41,6 +41,14 @@ export default function LiquidityIndicator({
     orange: 'from-orange-400 to-red-600',
     red: 'from-red-400 to-rose-600',
   }
+  
+  const badgeColorMap = {
+    green: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+    amber: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+    orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+    red: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  }
 
   return (
     <div className="relative group">
@@ -81,7 +89,7 @@ export default function LiquidityIndicator({
       
       {/* Status Badge */}
       <div className="mt-2 text-center">
-        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-${status.color}-100 text-${status.color}-800 dark:bg-${status.color}-900 dark:text-${status.color}-200`}>
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${badgeColorMap[status.color as keyof typeof badgeColorMap] || badgeColorMap.green}`}>
           {status.icon} {status.label}
         </span>
       </div>

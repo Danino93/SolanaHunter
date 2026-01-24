@@ -34,6 +34,17 @@ export default function ScoreGauge({
   const gradientClass = getScoreGradient(score)
   const emoji = getScoreEmoji(score)
   
+  // Map gradient classes to actual colors for SVG
+  const gradientColorMap: Record<string, { from: string; to: string }> = {
+    'from-purple-500 to-pink-500': { from: '#a855f7', to: '#ec4899' },
+    'from-green-500 to-emerald-600': { from: '#22c55e', to: '#059669' },
+    'from-blue-500 to-indigo-500': { from: '#3b82f6', to: '#6366f1' },
+    'from-amber-500 to-orange-500': { from: '#f59e0b', to: '#f97316' },
+    'from-red-500 to-rose-600': { from: '#ef4444', to: '#e11d48' },
+  }
+  
+  const gradientColors = gradientColorMap[gradientClass] || gradientColorMap['from-blue-500 to-indigo-500']
+  
   // Animate score on mount
   useEffect(() => {
     if (animated) {
@@ -92,8 +103,8 @@ export default function ScoreGauge({
         {/* Gradient Definition */}
         <defs>
           <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" className={`stop-current ${gradientClass.split(' ')[0].replace('from-', 'text-')}`} />
-            <stop offset="100%" className={`stop-current ${gradientClass.split(' ')[1].replace('to-', 'text-')}`} />
+            <stop offset="0%" stopColor={gradientColors.from} stopOpacity="1" />
+            <stop offset="100%" stopColor={gradientColors.to} stopOpacity="1" />
           </linearGradient>
         </defs>
       </motion.svg>

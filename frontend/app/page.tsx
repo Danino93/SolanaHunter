@@ -59,7 +59,6 @@ import { showToast } from '@/components/Toast'
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/animations'
 import { formatPrice, formatPercent, formatNumber } from '@/lib/formatters'
 import { getTokens } from '@/lib/api'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 
 interface Token {
   id: string
@@ -604,19 +603,19 @@ export default function Dashboard() {
                 className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4"
               >
                 {[
-                  { label: 'Total Tokens', value: stats.totalTokens, icon: <Target className="w-5 h-5" />, color: 'blue' },
-                  { label: 'High Score', value: stats.highScoreTokens, icon: <TrendingUp className="w-5 h-5" />, color: 'green' },
-                  { label: 'Avg Score', value: stats.averageScore, icon: <BarChart3 className="w-5 h-5" />, color: 'purple' },
-                  { label: 'Smart Wallets', value: stats.smartWallets, icon: <Wallet className="w-5 h-5" />, color: 'orange' },
-                  { label: 'Top Performers', value: stats.topPerformers, icon: <Zap className="w-5 h-5" />, color: 'yellow' },
-                  { label: 'Total Volume', value: `$${formatNumber(stats.totalVolume)}`, icon: <DollarSign className="w-5 h-5" />, color: 'green' },
-                  { label: 'Wallet Score', value: stats.avgWalletScore, icon: <Users className="w-5 h-5" />, color: 'pink' },
-                  { label: 'Liquidity', value: `$${formatNumber(stats.totalLiquidity)}`, icon: <Activity className="w-5 h-5" />, color: 'cyan' },
+                  { label: 'Total Tokens', value: stats.totalTokens, icon: <Target className="w-5 h-5" />, color: 'blue', gradient: 'bg-gradient-to-r from-blue-500 to-blue-600' },
+                  { label: 'High Score', value: stats.highScoreTokens, icon: <TrendingUp className="w-5 h-5" />, color: 'green', gradient: 'bg-gradient-to-r from-green-500 to-green-600' },
+                  { label: 'Avg Score', value: stats.averageScore, icon: <BarChart3 className="w-5 h-5" />, color: 'purple', gradient: 'bg-gradient-to-r from-purple-500 to-purple-600' },
+                  { label: 'Smart Wallets', value: stats.smartWallets, icon: <Wallet className="w-5 h-5" />, color: 'orange', gradient: 'bg-gradient-to-r from-orange-500 to-orange-600' },
+                  { label: 'Top Performers', value: stats.topPerformers, icon: <Zap className="w-5 h-5" />, color: 'yellow', gradient: 'bg-gradient-to-r from-yellow-500 to-yellow-600' },
+                  { label: 'Total Volume', value: `$${formatNumber(stats.totalVolume)}`, icon: <DollarSign className="w-5 h-5" />, color: 'green', gradient: 'bg-gradient-to-r from-green-500 to-green-600' },
+                  { label: 'Wallet Score', value: stats.avgWalletScore, icon: <Users className="w-5 h-5" />, color: 'pink', gradient: 'bg-gradient-to-r from-pink-500 to-pink-600' },
+                  { label: 'Liquidity', value: `$${formatNumber(stats.totalLiquidity)}`, icon: <Activity className="w-5 h-5" />, color: 'cyan', gradient: 'bg-gradient-to-r from-cyan-500 to-cyan-600' },
                 ].map((stat, index) => (
                   <motion.div key={stat.label} variants={staggerItem}>
                     <AnimatedCard className="text-center p-4">
                       <div className="flex flex-col items-center space-y-2">
-                        <div className={`p-2 rounded-lg bg-gradient-to-r from-${stat.color}-500 to-${stat.color}-600 text-white`}>
+                        <div className={`p-2 rounded-lg ${stat.gradient} text-white`}>
                           {stat.icon}
                         </div>
                         <div className="text-2xl font-bold text-gray-900 dark:text-white">
