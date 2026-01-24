@@ -34,7 +34,7 @@ if __name__ == "__main__":
     api_app = init_app(mock_bot)
     
     # Get port from environment variable (Railway/Heroku) or default to 8000
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8080))
     
     print(f"🚀 Starting SolanaHunter API Server on port {port}")
     print(f"📡 API-only mode (bot disabled)")
