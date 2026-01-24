@@ -486,6 +486,115 @@ export default function Dashboard() {
             ))}
           </motion.div>
 
+          {/* Performance Overview & Recent High-Score Tokens */}
+          {!loading && tokens.length > 0 && (
+            <motion.div
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+              className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8"
+            >
+              {/* Performance Overview */}
+              <motion.div variants={staggerItem}>
+                <AnimatedCard>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                      <BarChart3 className="w-6 h-6 text-blue-500" />
+                      סקירת ביצועים
+                    </h2>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Target className="w-5 h-5 text-blue-500" />
+                        <span className="text-gray-700 dark:text-gray-300">סה"כ טוקנים נסרקו</span>
+                      </div>
+                      <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalTokens}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <TrendingUp className="w-5 h-5 text-green-500" />
+                        <span className="text-gray-700 dark:text-gray-300">טוקנים עם ציון גבוה (85+)</span>
+                      </div>
+                      <span className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.highScoreTokens}</span>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <BarChart3 className="w-5 h-5 text-purple-500" />
+                        <span className="text-gray-700 dark:text-gray-300">ציון ממוצע</span>
+                      </div>
+                      <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.averageScore}/100</span>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Zap className="w-5 h-5 text-orange-500" />
+                        <span className="text-gray-700 dark:text-gray-300">טוקנים מובילים (+10%)</span>
+                      </div>
+                      <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.topPerformers}</span>
+                    </div>
+                  </div>
+                </AnimatedCard>
+              </motion.div>
+
+              {/* Recent High-Score Tokens */}
+              <motion.div variants={staggerItem}>
+                <AnimatedCard>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                      <Award className="w-6 h-6 text-yellow-500" />
+                      טוקנים עם ציון גבוה לאחרונה
+                    </h2>
+                  </div>
+                  <div className="space-y-3">
+                    {tokens
+                      .filter(t => t.score >= 70)
+                      .sort((a, b) => b.score - a.score)
+                      .slice(0, 5)
+                      .map((token, index) => (
+                        <motion.div
+                          key={token.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-lg hover:shadow-lg transition-all cursor-pointer"
+                          onClick={() => handleTokenSelect(token)}
+                        >
+                          <div className="flex items-center gap-4 flex-1">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white font-bold">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-gray-900 dark:text-white">{token.symbol || 'UNKNOWN'}</span>
+                                <span className="text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                  {token.grade}
+                                </span>
+                              </div>
+                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                                {token.name || 'Unknown Token'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                              {token.score}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">/100</div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    {tokens.filter(t => t.score >= 70).length === 0 && (
+                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                        <Award className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>אין טוקנים עם ציון גבוה כרגע</p>
+                      </div>
+                    )}
+                  </div>
+                </AnimatedCard>
+              </motion.div>
+            </motion.div>
+          )}
+
           {/* Tokens Table */}
           <AnimatedCard>
             <div className="flex items-center justify-between mb-6">
