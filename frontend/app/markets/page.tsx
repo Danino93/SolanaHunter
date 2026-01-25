@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { showToast } from '@/components/Toast'
 import { getTrendingTokens, getNewTokens, searchDexTokens } from '@/lib/api'
+import TokenDetailModal from '@/components/TokenDetailModal'
 
 interface DexToken {
   pair_address: string
@@ -61,6 +62,7 @@ export default function MarketsPage() {
   const [searching, setSearching] = useState(false)
   const [activeTab, setActiveTab] = useState<'trending' | 'new' | 'search'>('trending')
   const [authChecked, setAuthChecked] = useState(false)
+  const [selectedToken, setSelectedToken] = useState<DexToken | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -314,7 +316,8 @@ export default function MarketsPage() {
                     {displayTokens.map((token, index) => (
                       <tr
                         key={token.pair_address}
-                        className="group hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/30 dark:hover:from-slate-800/50 dark:hover:to-slate-700/30 transition-all duration-300"
+                        onClick={() => setSelectedToken(token)}
+                        className="group hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/30 dark:hover:from-slate-800/50 dark:hover:to-slate-700/30 transition-all duration-300 cursor-pointer"
                       >
                         <td className="px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">
                           {index + 1}
@@ -374,6 +377,7 @@ export default function MarketsPage() {
                             href={token.url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors text-sm font-medium"
                           >
                             <ExternalLink className="w-4 h-4" />
@@ -424,6 +428,31 @@ export default function MarketsPage() {
           )}
         </main>
       </div>
+
+      {/* Token Detail Modal */}
+      {selectedToken && (
+        <TokenDetailModal
+          token={{
+            id: selectedToken.token_address || selectedToken.pair_address,
+            address: selectedToken.token_address || selectedToken.pair_address,
+            symbol: selectedToken.symbol,
+            name: selectedToken.name || selectedToken.symbol,
+            score: 0,
+            safety_score: 0,
+            holder_score: 0,
+            smart_money_score: 0,
+            grade: 'N/A',
+            category: 'DexScreener',
+            analyzed_at: new Date().toISOString(),
+            price_usd: selectedToken.price_usd,
+            volume_24h: selectedToken.volume_24h,
+            liquidity_sol: selectedToken.liquidity_usd / 100, // Approximate conversion
+            change24h: selectedToken.price_change_24h,
+            token_created_at: selectedToken.created_at,
+          }}
+          onClose={() => setSelectedToken(null)}
+        />
+      )}
     </DashboardLayout>
   )
 }

@@ -293,13 +293,13 @@ export interface DexToken {
 
 export async function getTrendingTokens(limit: number = 20) {
   return apiRequest<{ tokens: DexToken[]; total: number; chain: string }>(
-    `/api/dexscreener/trending?limit=${limit}`
+    `/api/dexscreener/trending?chain=solana&limit=${limit}`
   )
 }
 
 export async function getNewTokens(limit: number = 20) {
   return apiRequest<{ tokens: DexToken[]; total: number; chain: string }>(
-    `/api/dexscreener/new?limit=${limit}`
+    `/api/dexscreener/new?chain=solana&limit=${limit}`
   )
 }
 

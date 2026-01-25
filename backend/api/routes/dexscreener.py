@@ -44,15 +44,23 @@ async def get_trending_tokens(
         all_pairs = []
         url = f"{DEXSCREENER_BASE}/search"
         
-        # Use popular token symbols to get diverse results
-        # These searches will return many pairs that we can then sort by volume
-        search_queries = [
-            "SOL",  # Will return SOL pairs with various quote tokens
-            "USDC",  # Will return USDC pairs
-        ] if chain == "solana" else [
-            "ETH",
-            "USDC",
-        ]
+        # Use multiple search strategies to get diverse trending tokens
+        # Strategy 1: Search popular Solana tokens to get many pairs
+        # Strategy 2: Search with common pair patterns
+        if chain == "solana":
+            # Popular Solana tokens that will return many diverse pairs
+            search_queries = [
+                "SOL/USDC",  # Most popular pair - will return many results
+                "SOL/USDT",  # Second most popular
+                "BONK",      # Popular meme coin
+                "WIF",       # Popular meme coin
+                "POPCAT",    # Popular meme coin
+            ]
+        else:
+            search_queries = [
+                "ETH/USDC",
+                "ETH/USDT",
+            ]
         
         async with httpx.AsyncClient(timeout=15.0) as client:
             for query in search_queries:
@@ -62,12 +70,12 @@ async def get_trending_tokens(
                     data = response.json()
                     pairs = data.get("pairs", [])
                     
-                    # Filter by chain
+                    # Filter by chain - ONLY Solana (or specified chain)
                     chain_pairs = [p for p in pairs if p.get("chainId") == chain]
                     all_pairs.extend(chain_pairs)
                     
                     # If we have enough pairs, break early
-                    if len(all_pairs) >= limit * 3:  # Get more to filter better
+                    if len(all_pairs) >= limit * 5:  # Get more to filter better
                         break
                 except Exception as e:
                     logger.warning(f"⚠️ Search query '{query}' failed: {e}")
