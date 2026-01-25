@@ -55,6 +55,7 @@ class PositionStatus(Enum):
 from executor.wallet_manager import WalletManager
 from executor.price_fetcher import PriceFetcher
 from analyzer.rug_detector import get_rug_detector
+from database.supabase_client import SupabaseClient
 from core.config import settings
 from utils.logger import get_logger
 
@@ -131,6 +132,7 @@ class PositionMonitor:
         price_fetcher: Optional[PriceFetcher] = None,
         check_interval_seconds: int = 30,
         alert_callback: Optional[Callable] = None,
+        supabase_client: Optional[SupabaseClient] = None,
     ):
         """
         אתחול PositionMonitor
@@ -141,6 +143,7 @@ class PositionMonitor:
             price_fetcher: PriceFetcher לקבלת מחירים (אופציונלי - יוצר חדש אם לא מוגדר)
             check_interval_seconds: תדירות בדיקה (ברירת מחדל: 30 שניות)
             alert_callback: פונקציה להתראות (אופציונלי)
+            supabase_client: SupabaseClient לשמירת פוזיציות (אופציונלי)
         """
         self.jupiter = jupiter_client
         self.wallet = wallet_manager
@@ -148,6 +151,7 @@ class PositionMonitor:
         self.rug_detector = get_rug_detector()  # NEW
         self.check_interval = check_interval_seconds
         self.alert_callback = alert_callback
+        self.supabase = supabase_client
         
         self.positions: Dict[str, Position] = {}  # token_mint -> Position
         self.monitoring_tasks: Dict[str, asyncio.Task] = {}  # token_mint -> Task
@@ -192,6 +196,28 @@ class PositionMonitor:
         )
         
         self.positions[token_mint] = position
+        
+        # שמור ב-Supabase
+        if self.supabase and self.supabase.enabled:
+            try:
+                entry_value_usd = entry_price * amount_tokens
+                position_data = {
+                    "token_address": token_mint,
+                    "token_symbol": token_symbol,
+                    "token_name": token_symbol,  # TODO: Get from token info
+                    "amount_tokens": amount_tokens,
+                    "entry_price": entry_price,
+                    "entry_value_usd": entry_value_usd,
+                    "stop_loss_pct": stop_loss_pct * 100,  # Convert to percentage
+                    "time_limit_days": time_limit_days,
+                    "status": "ACTIVE",
+                    "entry_timestamp": position.entry_timestamp.isoformat(),
+                    "transaction_signatures": transactions or [],
+                }
+                async with self.supabase:
+                    await self.supabase.save_position(position_data)
+            except Exception as e:
+                logger.error(f"❌ Error saving position to Supabase: {e}")
         
         # התחל ניטור
         task = asyncio.create_task(self._monitor_position(position))
@@ -307,6 +333,25 @@ class PositionMonitor:
                 )
                 return True, PositionStatus.STOP_LOSS_HIT
             
+            # עדכן מחיר ב-Supabase
+            if self.supabase and self.supabase.enabled:
+                try:
+                    current_value_usd = current_price * position.amount_tokens
+                    entry_value_usd = position.entry_price * position.amount_tokens
+                    pnl_usd = current_value_usd - entry_value_usd
+                    pnl_pct = (pnl_usd / entry_value_usd * 100) if entry_value_usd > 0 else 0
+                    
+                    async with self.supabase:
+                        await self.supabase.update_position_price(
+                            position.token_mint,
+                            current_price,
+                            current_value_usd,
+                            pnl_usd,
+                            pnl_pct
+                        )
+                except Exception as e:
+                    logger.error(f"❌ Error updating position price in Supabase: {e}")
+            
             # לוג מחיר (כל 5 דקות)
             if int(asyncio.get_event_loop().time()) % 300 == 0:
                 logger.debug(
@@ -395,6 +440,31 @@ class PositionMonitor:
             
             position.status = reason
             position.transactions.append(tx_signature)
+            
+            # עדכן ב-Supabase - סמן כסגור
+            if self.supabase and self.supabase.enabled:
+                try:
+                    async with self.supabase:
+                        await self.supabase.close_position(position.token_mint, reason.value)
+                        
+                        # שמור trade history
+                        current_price = await self._get_current_price(position.token_mint) or position.entry_price
+                        trade_data = {
+                            "position_id": None,  # TODO: Get position ID from Supabase
+                            "trade_type": "SELL",
+                            "token_address": position.token_mint,
+                            "token_symbol": position.token_symbol,
+                            "token_name": position.token_symbol,
+                            "amount_tokens": position.amount_tokens,
+                            "price_usd": current_price,
+                            "value_usd": current_price * position.amount_tokens,
+                            "transaction_signature": tx_signature,
+                            "realized_pnl_usd": position.profit_sol if position.profit_sol else None,
+                            "realized_pnl_pct": position.profit_pct if position.profit_pct else None,
+                        }
+                        await self.supabase.save_trade(trade_data)
+                except Exception as e:
+                    logger.error(f"❌ Error updating position in Supabase: {e}")
             
             logger.info(
                 f"✅ Position sold: {position.token_symbol}, "

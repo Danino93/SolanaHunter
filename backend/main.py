@@ -113,6 +113,7 @@ class SolanaHunter:
                     wallet_manager=self.wallet_manager,
                     price_fetcher=self.price_fetcher,
                     alert_callback=self._telegram_trade_alert,
+                    supabase_client=self.supabase if self.supabase and self.supabase.enabled else None,
                 )
                 self.take_profit_strategy = TakeProfitStrategy(
                     jupiter_client=self.jupiter_client,
@@ -197,6 +198,13 @@ class SolanaHunter:
         # Start performance tracking in background (NEW)
         asyncio.create_task(self.performance_tracker.start_monitoring())
         
+        # Load positions from Supabase if available
+        if self.position_monitor and self.supabase and self.supabase.enabled:
+            try:
+                await self._load_positions_from_db()
+            except Exception as e:
+                logger.error(f"❌ Error loading positions from database: {e}")
+        
         # Start scanning loop
         try:
             await self._scan_loop()
@@ -204,6 +212,42 @@ class SolanaHunter:
             logger.info("🛑 Shutdown requested by user")
         finally:
             await self.shutdown()
+    
+    async def _load_positions_from_db(self):
+        """Load active positions from Supabase and restore monitoring"""
+        if not self.position_monitor or not self.supabase or not self.supabase.enabled:
+            return
+        
+        try:
+            async with self.supabase:
+                positions = await self.supabase.get_active_positions()
+            
+            if not positions:
+                logger.info("📊 No active positions found in database")
+                return
+            
+            logger.info(f"📊 Loading {len(positions)} active positions from database...")
+            
+            for pos_data in positions:
+                try:
+                    # Convert from database format to Position object
+                    position = await self.position_monitor.add_position(
+                        token_mint=pos_data["token_address"],
+                        token_symbol=pos_data["token_symbol"],
+                        entry_price=float(pos_data["entry_price"]),
+                        amount_tokens=int(float(pos_data["amount_tokens"])),
+                        stop_loss_pct=float(pos_data.get("stop_loss_pct", 15.0)) / 100.0,  # Convert from percentage
+                        time_limit_days=int(pos_data.get("time_limit_days", 7)),
+                        transactions=pos_data.get("transaction_signatures", []),
+                    )
+                    logger.info(f"✅ Restored position: {position.token_symbol}")
+                except Exception as e:
+                    logger.error(f"❌ Error restoring position {pos_data.get('token_symbol')}: {e}")
+            
+            logger.info(f"✅ Loaded {len(positions)} positions from database")
+            
+        except Exception as e:
+            logger.error(f"❌ Error loading positions from database: {e}", exc_info=True)
     
     async def _run_initial_discovery(self):
         """Run initial smart wallet discovery in background"""

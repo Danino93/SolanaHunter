@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isAuthenticated } from '@/lib/auth'
 import DashboardLayout from '@/components/DashboardLayout'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { 
   Wallet, 
   TrendingUp, 
@@ -28,9 +29,14 @@ import {
   AlertCircle,
   RefreshCw,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  ExternalLink
 } from 'lucide-react'
-import { getPositions } from '@/lib/api'
+import { getPositions, sellPosition, updatePosition, getWalletInfo, WalletInfo, getPortfolioPerformanceHistory, PerformanceHistoryData } from '@/lib/api'
+import { showToast } from '@/components/Toast'
+import { formatAddress } from '@/lib/formatters'
+import PerformanceChart from '@/components/PerformanceChart'
+import EditPositionModal from '@/components/EditPositionModal'
 
 interface Position {
   id: string
@@ -45,6 +51,7 @@ interface Position {
   unrealized_pnl_usd: number
   unrealized_pnl_pct: number
   stop_loss_price?: number
+  stop_loss_pct?: number
   take_profit_1_price?: number
   take_profit_2_price?: number
   opened_at: string
@@ -55,6 +62,12 @@ export default function PortfolioPage() {
   const [positions, setPositions] = useState<Position[]>([])
   const [loading, setLoading] = useState(true)
   const [authChecked, setAuthChecked] = useState(false)
+  const [sellingToken, setSellingToken] = useState<string | null>(null)
+  const [editingToken, setEditingToken] = useState<string | null>(null)
+  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null)
+  const [performanceData, setPerformanceData] = useState<PerformanceHistoryData[]>([])
+  const [chartTimeRange, setChartTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d')
+  const [editingPosition, setEditingPosition] = useState<Position | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -62,8 +75,56 @@ export default function PortfolioPage() {
     } else {
       setAuthChecked(true)
       loadPositions()
+      loadWalletInfo()
+      loadPerformanceHistory()
     }
   }, [router])
+
+  // Real-time updates from Supabase
+  useEffect(() => {
+    if (!authChecked || !isSupabaseConfigured || !supabase) return
+
+    // Subscribe to positions table changes
+    const positionsChannel = supabase
+      .channel('positions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'positions',
+        },
+        (payload) => {
+          console.log('Position changed:', payload)
+          // Reload positions when changed
+          loadPositions()
+        }
+      )
+      .subscribe()
+
+    // Subscribe to trade_history table changes
+    const tradesChannel = supabase
+      .channel('trades-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trade_history',
+        },
+        (payload) => {
+          console.log('Trade changed:', payload)
+          // Reload positions to reflect changes
+          loadPositions()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      positionsChannel.unsubscribe()
+      tradesChannel.unsubscribe()
+    }
+  }, [authChecked])
 
   const loadPositions = async () => {
     setLoading(true)
@@ -82,6 +143,71 @@ export default function PortfolioPage() {
       setLoading(false)
     }
   }
+
+  const handleSell = async (tokenAddress: string) => {
+    if (!confirm('האם אתה בטוח שברצונך למכור את הפוזיציה הזו?')) {
+      return
+    }
+    
+    setSellingToken(tokenAddress)
+    try {
+      const { data, error } = await sellPosition(tokenAddress, 100.0)
+      if (error) {
+        showToast('אופס, שגיאה במכירת פוזיציה', 'error')
+      } else {
+        showToast('פוזיציה נמכרה בהצלחה!', 'success')
+        // Reload positions
+        await loadPositions()
+      }
+    } catch (error) {
+      console.error('Error selling position:', error)
+      showToast('אופס, שגיאה במכירת פוזיציה', 'error')
+    } finally {
+      setSellingToken(null)
+    }
+  }
+
+  const handleEdit = (tokenAddress: string) => {
+    const position = positions.find(p => p.token_address === tokenAddress)
+    if (position) {
+      setEditingPosition(position)
+    }
+  }
+
+  const loadWalletInfo = async () => {
+    try {
+      const { data, error } = await getWalletInfo()
+      if (error) {
+        console.error('Failed to load wallet info:', error)
+      } else {
+        setWalletInfo(data)
+      }
+    } catch (error) {
+      console.error('Error loading wallet info:', error)
+    }
+  }
+
+  const loadPerformanceHistory = async () => {
+    try {
+      const days = chartTimeRange === '7d' ? 7 : chartTimeRange === '30d' ? 30 : chartTimeRange === '90d' ? 90 : 365
+      const { data, error } = await getPortfolioPerformanceHistory(days)
+      if (error) {
+        console.error('Failed to load performance history:', error)
+        setPerformanceData([])
+      } else {
+        setPerformanceData(data?.data || [])
+      }
+    } catch (error) {
+      console.error('Error loading performance history:', error)
+      setPerformanceData([])
+    }
+  }
+
+  useEffect(() => {
+    if (authChecked) {
+      loadPerformanceHistory()
+    }
+  }, [chartTimeRange, authChecked])
 
   if (!authChecked) {
     return (
@@ -114,19 +240,59 @@ export default function PortfolioPage() {
                   פוזיציות פעילות וביצועים
                 </p>
               </div>
-              <button
-                onClick={loadPositions}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                רענן
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    loadPositions()
+                    loadWalletInfo()
+                    loadPerformanceHistory()
+                  }}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  רענן
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
         <main className="container mx-auto px-4 py-8">
+          {/* Wallet Info Card */}
+          {walletInfo && walletInfo.available && (
+            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl p-6 border border-blue-200/50 dark:border-blue-800/50 mb-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                    ארנק הבוט
+                  </h2>
+                  <div className="flex items-center gap-3">
+                    <code className="text-sm font-mono text-slate-600 dark:text-slate-400">
+                      {formatAddress(walletInfo.address || '')}
+                    </code>
+                    <a
+                      href={`https://solscan.io/account/${walletInfo.address}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:text-blue-600"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    {walletInfo.balance_sol.toFixed(4)} SOL
+                  </div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    ${walletInfo.balance_usd.toFixed(2)} USD
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Portfolio Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700 shadow-xl">
@@ -176,6 +342,44 @@ export default function PortfolioPage() {
               </p>
             </div>
           </div>
+
+          {/* Performance Chart */}
+          {performanceData.length > 0 && (
+            <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-700 shadow-xl mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                  ביצועי תיק
+                </h2>
+                <div className="flex items-center gap-2">
+                  {(['7d', '30d', '90d', 'all'] as const).map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => {
+                        setChartTimeRange(range)
+                        loadPerformanceHistory()
+                      }}
+                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                        chartTimeRange === range
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      }`}
+                    >
+                      {range === '7d' ? '7 ימים' : range === '30d' ? '30 ימים' : range === '90d' ? '90 ימים' : 'הכל'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <PerformanceChart
+                data={performanceData.map(d => ({
+                  date: d.date,
+                  roi: d.pnl_pct,
+                  value: d.value,
+                }))}
+                type="area"
+                height={300}
+              />
+            </div>
+          )}
 
           {/* Positions List */}
           <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl border border-slate-200/50 dark:border-slate-700 shadow-2xl overflow-hidden">
@@ -296,10 +500,18 @@ export default function PortfolioPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <button className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors text-sm font-medium">
-                              מכור
+                            <button
+                              onClick={() => handleSell(position.token_address)}
+                              disabled={sellingToken === position.token_address}
+                              className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {sellingToken === position.token_address ? 'מוכר...' : 'מכור'}
                             </button>
-                            <button className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors text-sm font-medium">
+                            <button
+                              onClick={() => handleEdit(position.token_address)}
+                              disabled={editingToken === position.token_address}
+                              className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                               ערוך
                             </button>
                           </div>
@@ -313,6 +525,18 @@ export default function PortfolioPage() {
           </div>
         </main>
       </div>
+
+      {/* Edit Position Modal */}
+      {editingPosition && (
+        <EditPositionModal
+          position={editingPosition}
+          onClose={() => setEditingPosition(null)}
+          onUpdate={() => {
+            loadPositions()
+            setEditingPosition(null)
+          }}
+        />
+      )}
     </DashboardLayout>
   )
 }

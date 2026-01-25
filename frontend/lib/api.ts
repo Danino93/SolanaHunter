@@ -220,6 +220,26 @@ export async function getPositions() {
   return apiRequest<{ positions: Position[]; total: number }>('/api/portfolio')
 }
 
+export async function sellPosition(tokenAddress: string, amountPercent: number = 100.0) {
+  return apiRequest<{ success: boolean; transaction_signature: string; message: string; solscan_url: string }>(
+    `/api/portfolio/positions/${tokenAddress}/sell`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ amount_percent: amountPercent }),
+    }
+  )
+}
+
+export async function updatePosition(tokenAddress: string, updates: { stop_loss_pct?: number; take_profit_1_price?: number; take_profit_2_price?: number }) {
+  return apiRequest<{ success: boolean; message: string; position: any }>(
+    `/api/portfolio/positions/${tokenAddress}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    }
+  )
+}
+
 export interface PortfolioStats {
   total_value: number
   total_cost: number
@@ -231,6 +251,32 @@ export interface PortfolioStats {
 
 export async function getPortfolioStats() {
   return apiRequest<PortfolioStats>('/api/portfolio/stats')
+}
+
+export interface WalletInfo {
+  address: string | null
+  balance_sol: number
+  balance_usd: number
+  token_holdings: Array<{ mint: string; balance: number }>
+  available: boolean
+}
+
+export async function getWalletInfo() {
+  return apiRequest<WalletInfo>('/api/portfolio/wallet')
+}
+
+export interface PerformanceHistoryData {
+  date: string
+  value: number
+  cost: number
+  pnl: number
+  pnl_pct: number
+}
+
+export async function getPortfolioPerformanceHistory(days: number = 30) {
+  return apiRequest<{ data: PerformanceHistoryData[]; total_days: number }>(
+    `/api/portfolio/performance/history?days=${days}`
+  )
 }
 
 // ============================================

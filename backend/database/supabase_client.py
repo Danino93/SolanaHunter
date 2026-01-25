@@ -333,6 +333,244 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"❌ Error getting new tokens: {e}")
             return []
+    
+    async def save_position(self, position: Dict) -> bool:
+        """
+        Save or update a position in Supabase
+        
+        Args:
+            position: Position dictionary with all fields
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.enabled or not self._client:
+            return False
+        
+        try:
+            position_data = {
+                "user_id": position.get("user_id", "default"),  # Add user_id
+                "token_address": position.get("token_address"),
+                "token_symbol": position.get("token_symbol"),
+                "token_name": position.get("token_name"),
+                "amount_tokens": float(position.get("amount_tokens", 0)),
+                "entry_price": float(position.get("entry_price", 0)),
+                "current_price": float(position.get("current_price", 0)) if position.get("current_price") else None,
+                "entry_value_usd": float(position.get("entry_value_usd", 0)),
+                "current_value_usd": float(position.get("current_value_usd", 0)) if position.get("current_value_usd") else None,
+                "unrealized_pnl_usd": float(position.get("unrealized_pnl_usd", 0)) if position.get("unrealized_pnl_usd") else None,
+                "unrealized_pnl_pct": float(position.get("unrealized_pnl_pct", 0)) if position.get("unrealized_pnl_pct") else None,
+                "stop_loss_price": float(position.get("stop_loss_price", 0)) if position.get("stop_loss_price") else None,
+                "stop_loss_pct": float(position.get("stop_loss_pct", 15.0)),
+                "take_profit_1_price": float(position.get("take_profit_1_price", 0)) if position.get("take_profit_1_price") else None,
+                "take_profit_2_price": float(position.get("take_profit_2_price", 0)) if position.get("take_profit_2_price") else None,
+                "time_limit_days": int(position.get("time_limit_days", 7)),
+                "status": position.get("status", "ACTIVE"),
+                "entry_timestamp": position.get("entry_timestamp"),
+                "closed_at": position.get("closed_at"),
+                "transaction_signatures": position.get("transaction_signatures"),
+            }
+            
+            # Remove None values
+            position_data = {k: v for k, v in position_data.items() if v is not None}
+            
+            # Upsert by token_address
+            # First try to update, if not exists then insert
+            headers = {
+                "Prefer": "return=representation"
+            }
+            
+            # Try PATCH first (update if exists)
+            patch_response = await self._client.patch(
+                f"/positions?token_address=eq.{position_data['token_address']}",
+                json=position_data,
+                headers=headers
+            )
+            
+            if patch_response.status_code == 200:
+                # Updated existing position
+                return True
+            
+            # If not found, insert new
+            response = await self._client.post(
+                "/positions",
+                json=position_data,
+                headers=headers
+            )
+            
+            if response.status_code in (200, 201):
+                logger.debug(f"✅ Position saved: {position.get('token_symbol')}")
+                return True
+            else:
+                logger.warning(f"⚠️ Failed to save position: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error saving position: {e}")
+            return False
+    
+    async def update_position_price(self, token_address: str, current_price: float, current_value_usd: float, pnl_usd: float, pnl_pct: float) -> bool:
+        """
+        Update position current price and P&L
+        
+        Args:
+            token_address: Token address
+            current_price: Current token price
+            current_value_usd: Current position value in USD
+            pnl_usd: Unrealized P&L in USD
+            pnl_pct: Unrealized P&L percentage
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.enabled or not self._client:
+            return False
+        
+        try:
+            update_data = {
+                "current_price": float(current_price),
+                "current_value_usd": float(current_value_usd),
+                "unrealized_pnl_usd": float(pnl_usd),
+                "unrealized_pnl_pct": float(pnl_pct),
+            }
+            
+            response = await self._client.patch(
+                f"/positions?token_address=eq.{token_address}",
+                json=update_data
+            )
+            
+            if response.status_code == 200:
+                return True
+            else:
+                logger.warning(f"⚠️ Failed to update position price: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error updating position price: {e}")
+            return False
+    
+    async def get_positions(self, user_id: str = "default", status: Optional[str] = None) -> List[Dict]:
+        """
+        Get positions from Supabase
+        
+        Args:
+            user_id: User ID (default: "default")
+            status: Filter by status (optional)
+            
+        Returns:
+            List of position dictionaries
+        """
+        if not self.enabled or not self._client:
+            return []
+        
+        try:
+            params = {"user_id": f"eq.{user_id}"}
+            if status:
+                params["status"] = f"eq.{status}"
+            
+            params["order"] = "entry_timestamp.desc"
+            
+            response = await self._client.get("/positions", params=params)
+            
+            if response.status_code == 200:
+                positions = response.json()
+                logger.debug(f"✅ Loaded {len(positions)} positions from database")
+                return positions
+            else:
+                logger.warning(f"⚠️ Failed to get positions: {response.status_code}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"❌ Error getting positions: {e}")
+            return []
+    
+    async def get_active_positions(self, user_id: str = "default") -> List[Dict]:
+        """Get only active positions"""
+        return await self.get_positions(user_id=user_id, status="ACTIVE")
+    
+    async def close_position(self, token_address: str, status: str = "MANUAL_CLOSE") -> bool:
+        """
+        Close a position (mark as closed)
+        
+        Args:
+            token_address: Token address
+            status: Close status (MANUAL_CLOSE, STOP_LOSS_HIT, etc.)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.enabled or not self._client:
+            return False
+        
+        try:
+            update_data = {
+                "status": status,
+                "closed_at": datetime.now(timezone.utc).isoformat(),
+            }
+            
+            response = await self._client.patch(
+                f"/positions?token_address=eq.{token_address}",
+                json=update_data
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"✅ Position closed: {token_address[:8]}...")
+                return True
+            else:
+                logger.warning(f"⚠️ Failed to close position: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error closing position: {e}")
+            return False
+    
+    async def save_trade(self, trade: Dict) -> bool:
+        """
+        Save a trade to trade_history
+        
+        Args:
+            trade: Trade dictionary with all fields
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.enabled or not self._client:
+            return False
+        
+        try:
+            trade_data = {
+                "user_id": trade.get("user_id", "default"),  # Add user_id
+                "position_id": trade.get("position_id"),
+                "trade_type": trade.get("trade_type"),  # BUY or SELL
+                "token_address": trade.get("token_address"),
+                "token_symbol": trade.get("token_symbol"),
+                "token_name": trade.get("token_name"),
+                "amount_tokens": float(trade.get("amount_tokens", 0)),
+                "price_usd": float(trade.get("price_usd", 0)),
+                "value_usd": float(trade.get("value_usd", 0)),
+                "transaction_signature": trade.get("transaction_signature"),
+                "realized_pnl_usd": float(trade.get("realized_pnl_usd", 0)) if trade.get("realized_pnl_usd") else None,
+                "realized_pnl_pct": float(trade.get("realized_pnl_pct", 0)) if trade.get("realized_pnl_pct") else None,
+            }
+            
+            # Remove None values
+            trade_data = {k: v for k, v in trade_data.items() if v is not None}
+            
+            response = await self._client.post(
+                "/trade_history",
+                json=trade_data
+            )
+            
+            if response.status_code in (200, 201):
+                logger.debug(f"✅ Trade saved: {trade.get('trade_type')} {trade.get('token_symbol')}")
+                return True
+            else:
+                logger.warning(f"⚠️ Failed to save trade: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error saving trade: {e}")
+            return False
 
 
 # Global instance
