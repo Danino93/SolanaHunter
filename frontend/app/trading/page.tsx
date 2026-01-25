@@ -546,9 +546,9 @@ function TradingContent() {
                         >
                           <div className="flex justify-between items-center mb-1">
                             <span className={`font-medium ${
-                              trade.type === 'BUY' ? 'text-green-600' : 'text-red-600'
+                              trade.trade_type === 'BUY' ? 'text-green-600' : 'text-red-600'
                             }`}>
-                              {trade.type === 'BUY' ? 'קנייה' : 'מכירה'}
+                              {trade.trade_type === 'BUY' ? 'קנייה' : 'מכירה'}
                             </span>
                             <span className="text-xs text-slate-500">
                               {new Date(trade.created_at).toLocaleDateString('he-IL')}
