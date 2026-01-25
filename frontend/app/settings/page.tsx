@@ -23,7 +23,8 @@ import {
   Settings,
   RefreshCw,
   Save,
-  Wallet
+  Wallet,
+  Key
 } from 'lucide-react'
 import { getSettings, updateSettings } from '@/lib/api'
 import { showToast } from '@/components/Toast'
