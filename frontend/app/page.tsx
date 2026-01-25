@@ -227,50 +227,50 @@ export default function Dashboard() {
       }
 
       // Fallback to Supabase (only if API failed)
-      if (isSupabaseConfigured && supabase) {
-        try {
-          const { data: realTokens, error } = await supabase
-            .from('tokens')
-            .select('*')
-            .order('final_score', { ascending: false })
-            .limit(50)
+if (isSupabaseConfigured && supabase) {
+  try {
+    const { data: realTokens, error } = await supabase
+      .from('scanned_tokens_history')  // ✅ זה השינוי היחיד!
+      .select('*')
+      .order('final_score', { ascending: false })
+      .limit(50)
 
-          if (!error && realTokens && realTokens.length > 0) {
-            const convertedTokens = realTokens.map(token => ({
-              id: token.address,
-              address: token.address,
-              symbol: token.symbol,
-              name: token.name,
-              price: 0,
-              change24h: 0,
-              volume24h: 0,
-              liquidity: 0,
-              marketCap: 0,
-              score: token.final_score || token.score || 0,
-              safety_score: token.safety_score || 0,
-              holder_score: token.holder_score || 0,
-              liquidity_score: 0,
-              volume_score: 0,
-              smart_money_score: token.smart_money_score || 0,
-              price_action_score: 0,
-              grade: token.grade || 'C',
-              category: token.category || 'FAIR',
-              holders: token.holder_count || 0,
-              smartMoney: 0,
-              lastSeen: token.last_analyzed_at || token.analyzed_at || new Date().toISOString(),
-              trend: [], // Trend data will come from API later
-            }))
-            setTokens(convertedTokens)
-            setSmartWallets([]) // Smart wallets will come from Supabase later
-            setLoading(false)
-            return
-          } else if (error) {
-            console.error('שגיאה ב-Supabase:', error)
-          }
-        } catch (supabaseError) {
-          console.error('שגיאה ב-Supabase:', supabaseError)
-        }
-      }
+    if (!error && realTokens && realTokens.length > 0) {
+      const convertedTokens = realTokens.map(token => ({
+        id: token.address,
+        address: token.address,
+        symbol: token.symbol,
+        name: token.name,
+        price: 0,
+        change24h: 0,
+        volume24h: 0,
+        liquidity: 0,
+        marketCap: 0,
+        score: token.final_score || token.score || 0,
+        safety_score: token.safety_score || 0,
+        holder_score: token.holder_score || 0,
+        liquidity_score: 0,
+        volume_score: 0,
+        smart_money_score: token.smart_money_score || 0,
+        price_action_score: 0,
+        grade: token.grade || 'C',
+        category: token.category || 'FAIR',
+        holders: token.holder_count || 0,
+        smartMoney: 0,
+        lastSeen: token.last_analyzed_at || token.analyzed_at || new Date().toISOString(),
+        trend: [], // Trend data will come from API later
+      }))
+      setTokens(convertedTokens)
+      setSmartWallets([]) // Smart wallets will come from Supabase later
+      setLoading(false)
+      return
+    } else if (error) {
+      console.error('שגיאה ב-Supabase:', error)
+    }
+  } catch (supabaseError) {
+    console.error('שגיאה ב-Supabase:', supabaseError)
+  }
+}
 
       // No data available from any source
       console.warn('אין נתונים זמינים - לא מ-API ולא מ-Supabase')
