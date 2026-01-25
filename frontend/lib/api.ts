@@ -101,6 +101,20 @@ export interface Token {
   mint_authority_disabled: boolean
   analyzed_at?: string  // Legacy field
   last_analyzed_at?: string  // New field from database
+  // New smart scanning fields
+  token_created_at?: string
+  token_age_hours?: number
+  last_scanned_at?: string
+  price_usd?: number
+  volume_24h?: number
+  liquidity_sol?: number
+  market_cap?: number
+  scan_priority?: number
+  scan_count?: number
+  liquidity_score?: number
+  volume_score?: number
+  price_action_score?: number
+  smart_money_count?: number
 }
 
 export async function getTokens(params?: {

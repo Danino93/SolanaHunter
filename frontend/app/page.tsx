@@ -53,6 +53,7 @@ import PerformanceChart from '@/components/PerformanceChart'
 import WalletBadge from '@/components/WalletBadge'
 import TokenTable from '@/components/TokenTable'
 import SearchBar from '@/components/SearchBar'
+import TokenDetailModal from '@/components/TokenDetailModal'
 
 import DashboardLayout from '@/components/DashboardLayout'
 import { showToast } from '@/components/Toast'
@@ -86,6 +87,19 @@ interface Token {
   analyzed_at?: string
   holder_count?: number
   top_10_percentage?: number
+  ownership_renounced?: boolean
+  liquidity_locked?: boolean
+  mint_authority_disabled?: boolean
+  // New fields from database
+  token_created_at?: string
+  token_age_hours?: number
+  last_scanned_at?: string
+  price_usd?: number
+  volume_24h?: number
+  liquidity_sol?: number
+  market_cap?: number
+  scan_priority?: number
+  scan_count?: number
 }
 
 interface SmartWallet {
@@ -188,29 +202,42 @@ export default function Dashboard() {
           const { data: apiTokens, error: apiError } = await getTokens({ limit: 50 })
           if (!apiError && apiTokens?.tokens && apiTokens.tokens.length > 0) {
             // Convert API tokens to our interface
-            const convertedTokens = apiTokens.tokens.map(token => ({
+            const convertedTokens = apiTokens.tokens.map((token: any) => ({
               id: token.address,
               address: token.address,
               symbol: token.symbol,
               name: token.name,
-              price: 0,
+              price: token.price_usd || 0,
               change24h: 0,
-              volume24h: 0,
-              liquidity: 0,
-              marketCap: 0,
+              volume24h: token.volume_24h || 0,
+              liquidity: token.liquidity_sol || 0,
+              marketCap: token.market_cap || 0,
               score: token.final_score || token.score || 0,
               safety_score: token.safety_score || 0,
               holder_score: token.holder_score || 0,
-              liquidity_score: 0,
-              volume_score: 0,
+              liquidity_score: token.liquidity_score || 0,
+              volume_score: token.volume_score || 0,
               smart_money_score: token.smart_money_score || 0,
-              price_action_score: 0,
+              price_action_score: token.price_action_score || 0,
               grade: token.grade || 'C',
               category: token.category || 'FAIR',
               holders: token.holder_count || 0,
-              smartMoney: 0,
+              smartMoney: token.smart_money_count || 0,
               lastSeen: token.last_analyzed_at || token.analyzed_at || new Date().toISOString(),
               trend: [], // Trend data will come from API later
+              // New fields
+              ownership_renounced: token.ownership_renounced,
+              liquidity_locked: token.liquidity_locked,
+              mint_authority_disabled: token.mint_authority_disabled,
+              token_created_at: token.token_created_at,
+              token_age_hours: token.token_age_hours,
+              last_scanned_at: token.last_scanned_at,
+              price_usd: token.price_usd,
+              volume_24h: token.volume_24h,
+              liquidity_sol: token.liquidity_sol,
+              market_cap: token.market_cap,
+              scan_priority: token.scan_priority,
+              scan_count: token.scan_count,
             }))
             setTokens(convertedTokens)
             setSmartWallets([]) // Smart wallets will come from API later
@@ -236,29 +263,42 @@ if (isSupabaseConfigured && supabase) {
       .limit(50)
 
     if (!error && realTokens && realTokens.length > 0) {
-      const convertedTokens = realTokens.map(token => ({
+      const convertedTokens = realTokens.map((token: any) => ({
         id: token.address,
         address: token.address,
         symbol: token.symbol,
         name: token.name,
-        price: 0,
+        price: token.price_usd || 0,
         change24h: 0,
-        volume24h: 0,
-        liquidity: 0,
-        marketCap: 0,
+        volume24h: token.volume_24h || 0,
+        liquidity: token.liquidity_sol || 0,
+        marketCap: token.market_cap || 0,
         score: token.final_score || token.score || 0,
         safety_score: token.safety_score || 0,
         holder_score: token.holder_score || 0,
-        liquidity_score: 0,
-        volume_score: 0,
+        liquidity_score: token.liquidity_score || 0,
+        volume_score: token.volume_score || 0,
         smart_money_score: token.smart_money_score || 0,
-        price_action_score: 0,
+        price_action_score: token.price_action_score || 0,
         grade: token.grade || 'C',
         category: token.category || 'FAIR',
         holders: token.holder_count || 0,
-        smartMoney: 0,
-        lastSeen: token.last_analyzed_at || token.analyzed_at || new Date().toISOString(),
+        smartMoney: token.smart_money_count || 0,
+        lastSeen: token.last_analyzed_at || token.analyzed_at || token.last_scanned_at || new Date().toISOString(),
         trend: [], // Trend data will come from API later
+        // New fields
+        ownership_renounced: token.ownership_renounced,
+        liquidity_locked: token.liquidity_locked,
+        mint_authority_disabled: token.mint_authority_disabled,
+        token_created_at: token.token_created_at,
+        token_age_hours: token.token_age_hours,
+        last_scanned_at: token.last_scanned_at,
+        price_usd: token.price_usd,
+        volume_24h: token.volume_24h,
+        liquidity_sol: token.liquidity_sol,
+        market_cap: token.market_cap,
+        scan_priority: token.scan_priority,
+        scan_count: token.scan_count,
       }))
       setTokens(convertedTokens)
       setSmartWallets([]) // Smart wallets will come from Supabase later
@@ -1204,6 +1244,49 @@ if (isSupabaseConfigured && supabase) {
           </motion.div>
         </motion.div>
       </div>
+
+      {/* Token Detail Modal */}
+      <TokenDetailModal
+        token={selectedToken ? {
+          id: selectedToken.id,
+          address: selectedToken.address,
+          symbol: selectedToken.symbol,
+          name: selectedToken.name,
+          score: selectedToken.score,
+          safety_score: selectedToken.safety_score,
+          holder_score: selectedToken.holder_score,
+          smart_money_score: selectedToken.smart_money_score,
+          grade: selectedToken.grade,
+          category: selectedToken.category,
+          analyzed_at: selectedToken.lastSeen,
+          holder_count: selectedToken.holders,
+          top_10_percentage: selectedToken.top_10_percentage,
+          ownership_renounced: selectedToken.ownership_renounced,
+          liquidity_locked: selectedToken.liquidity_locked,
+          mint_authority_disabled: selectedToken.mint_authority_disabled,
+          // New fields from database
+          token_created_at: (selectedToken as any).token_created_at,
+          token_age_hours: (selectedToken as any).token_age_hours,
+          last_scanned_at: (selectedToken as any).last_scanned_at,
+          price_usd: selectedToken.price || (selectedToken as any).price_usd,
+          volume_24h: selectedToken.volume24h || (selectedToken as any).volume_24h,
+          liquidity_sol: selectedToken.liquidity || (selectedToken as any).liquidity_sol,
+          market_cap: selectedToken.marketCap || (selectedToken as any).market_cap,
+          change24h: selectedToken.change24h,
+          scan_priority: (selectedToken as any).scan_priority,
+          scan_count: (selectedToken as any).scan_count,
+        } : null}
+        onClose={() => setSelectedToken(null)}
+        onBuy={(address) => {
+          router.push(`/trading?token=${address}`)
+        }}
+        onWatch={(address) => {
+          showToast('נוסף למעקב', 'success')
+        }}
+        onFavorite={(address) => {
+          showToast('נוסף למועדפים', 'success')
+        }}
+      />
     </DashboardLayout>
   )
 }

@@ -35,6 +35,17 @@ interface Token {
   ownership_renounced?: boolean
   liquidity_locked?: boolean
   mint_authority_disabled?: boolean
+  // New fields
+  token_created_at?: string
+  token_age_hours?: number
+  last_scanned_at?: string
+  price_usd?: number
+  volume_24h?: number
+  liquidity_sol?: number
+  market_cap?: number
+  change24h?: number
+  scan_priority?: number
+  scan_count?: number
 }
 
 interface TokenDetailModalProps {
@@ -131,8 +142,104 @@ export default function TokenDetailModal({
             />
           </div>
 
-          {/* Analysis Details */}
+          {/* Market Data */}
+          {(token.price_usd !== undefined || token.volume_24h !== undefined || token.liquidity_sol !== undefined) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {token.price_usd !== undefined && (
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">מחיר</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    ${token.price_usd.toFixed(8)}
+                  </p>
+                  {token.change24h !== undefined && (
+                    <p className={`text-sm mt-1 ${token.change24h >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {token.change24h >= 0 ? '↑' : '↓'} {Math.abs(token.change24h).toFixed(2)}%
+                    </p>
+                  )}
+                </div>
+              )}
+              {token.volume_24h !== undefined && (
+                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">נפח 24 שעות</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    ${token.volume_24h.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
+              {token.liquidity_sol !== undefined && (
+                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">נזילות</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                    {token.liquidity_sol.toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Token Info & Timing */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                מידע על המטבע
+              </h3>
+              <div className="space-y-2">
+                {token.token_created_at && (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">תאריך יצירה</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {new Date(token.token_created_at).toLocaleDateString('he-IL', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                )}
+                {token.token_age_hours !== undefined && (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">גיל המטבע</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {token.token_age_hours < 24 
+                        ? `${token.token_age_hours} שעות`
+                        : `${Math.floor(token.token_age_hours / 24)} ימים`
+                      }
+                    </span>
+                  </div>
+                )}
+                {token.last_scanned_at && (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">סריקה אחרונה</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {new Date(token.last_scanned_at).toLocaleDateString('he-IL', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                )}
+                {token.scan_count !== undefined && (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">מספר סריקות</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {token.scan_count}
+                    </span>
+                  </div>
+                )}
+                {token.scan_priority !== undefined && (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">עדיפות סריקה</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {token.scan_priority}/100
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
             <div className="space-y-3">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 ניתוח בטיחות
@@ -158,6 +265,10 @@ export default function TokenDetailModal({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Holder Analysis */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 ניתוח מחזיקים
@@ -181,6 +292,35 @@ export default function TokenDetailModal({
                     {token.smart_money_score}/15
                   </span>
                 </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                ניתוח אחרון
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">תאריך ניתוח</span>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {token.analyzed_at 
+                      ? new Date(token.analyzed_at).toLocaleDateString('he-IL', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      : 'N/A'
+                    }
+                  </span>
+                </div>
+                {token.market_cap !== undefined && (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                    <span className="text-sm text-slate-600 dark:text-slate-400">שווי שוק</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      ${token.market_cap.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
