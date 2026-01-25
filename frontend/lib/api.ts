@@ -345,10 +345,6 @@ export async function sellToken(request: SellRequest) {
   )
 }
 
-export async function getTradeHistory(limit: number = 50) {
-  return apiRequest<{ trades: any[]; total: number }>(`/api/trading/history?limit=${limit}`)
-}
-
 // ============================================
 // DexScreener API
 // ============================================
