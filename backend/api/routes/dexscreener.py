@@ -20,6 +20,7 @@ logger = get_logger("dexscreener")
 router = APIRouter()
 
 DEXSCREENER_BASE = "https://api.dexscreener.com/latest/dex"
+DEXSCREENER_API_BASE = "https://api.dexscreener.com"
 
 
 @router.get("/trending")
@@ -30,34 +31,71 @@ async def get_trending_tokens(
     """
     קבל טוקנים טרנדיים מ-DexScreener
     
+    Uses search endpoint with popular token symbols to get diverse pairs,
+    then filters by chain and sorts by volume (trending = high volume).
+    
+    Note: DexScreener doesn't have a direct trending endpoint, so we use
+    search with popular symbols and sort by volume.
+    
     Returns:
         List of trending tokens with price, volume, and change data
     """
     try:
-        url = f"{DEXSCREENER_BASE}/pairs/{chain}"
+        all_pairs = []
+        url = f"{DEXSCREENER_BASE}/search"
+        
+        # Use popular token symbols to get diverse results
+        # These searches will return many pairs that we can then sort by volume
+        search_queries = [
+            "SOL",  # Will return SOL pairs with various quote tokens
+            "USDC",  # Will return USDC pairs
+        ] if chain == "solana" else [
+            "ETH",
+            "USDC",
+        ]
         
         async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            data = response.json()
+            for query in search_queries:
+                try:
+                    response = await client.get(url, params={"q": query})
+                    response.raise_for_status()
+                    data = response.json()
+                    pairs = data.get("pairs", [])
+                    
+                    # Filter by chain
+                    chain_pairs = [p for p in pairs if p.get("chainId") == chain]
+                    all_pairs.extend(chain_pairs)
+                    
+                    # If we have enough pairs, break early
+                    if len(all_pairs) >= limit * 3:  # Get more to filter better
+                        break
+                except Exception as e:
+                    logger.warning(f"⚠️ Search query '{query}' failed: {e}")
+                    continue
         
-        pairs = data.get("pairs", [])
+        # Remove duplicates by pair address
+        seen_addresses = set()
+        unique_pairs = []
+        for pair in all_pairs:
+            pair_addr = pair.get("pairAddress")
+            if pair_addr and pair_addr not in seen_addresses:
+                seen_addresses.add(pair_addr)
+                unique_pairs.append(pair)
         
-        # מיון לפי volume 24h
+        # Sort by volume 24h (trending = high volume)
         sorted_pairs = sorted(
-            pairs,
+            unique_pairs,
             key=lambda p: float(p.get("volume", {}).get("h24", 0) or 0),
             reverse=True
         )
         
-        # קח את הטופ N
+        # Take top N
         trending = sorted_pairs[:limit]
         
-        # עיצוב הנתונים
+        # Format the data
         formatted = []
         for pair in trending:
             base_token = pair.get("baseToken", {})
-            quote_token = pair.get("quoteToken", {})
             
             price_usd = float(pair.get("priceUsd", 0) or 0)
             volume_24h = float(pair.get("volume", {}).get("h24", 0) or 0)
@@ -66,22 +104,16 @@ async def get_trending_tokens(
             
             formatted.append({
                 "pair_address": pair.get("pairAddress"),
-                "base_token": {
-                    "address": base_token.get("address"),
-                    "symbol": base_token.get("symbol"),
-                    "name": base_token.get("name"),
-                },
-                "quote_token": {
-                    "address": quote_token.get("address"),
-                    "symbol": quote_token.get("symbol"),
-                },
+                "token_address": base_token.get("address"),
+                "symbol": base_token.get("symbol"),
+                "name": base_token.get("name"),
                 "price_usd": price_usd,
                 "volume_24h": volume_24h,
                 "price_change_24h": price_change_24h,
                 "price_change_24h_pct": price_change_24h,
                 "liquidity_usd": liquidity,
                 "dex": pair.get("dexId"),
-                "pair_created_at": pair.get("pairCreatedAt"),
+                "created_at": pair.get("pairCreatedAt"),
                 "url": f"https://dexscreener.com/{chain}/{pair.get('pairAddress')}",
             })
         
@@ -245,48 +277,70 @@ async def get_new_tokens(
     """
     קבל טוקנים חדשים (נוצרו ב-24 שעות האחרונות)
     
+    Uses search endpoint to find new tokens, then filters by creation date.
+    
     Returns:
         List of newly created tokens
     """
     try:
-        url = f"{DEXSCREENER_BASE}/pairs/{chain}"
+        # Use search with common terms to get pairs, then filter by creation date
+        # DexScreener doesn't have a direct "new tokens" endpoint
+        search_queries = ["SOL", "USDC"] if chain == "solana" else ["ETH", "USDC"]
         
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            data = response.json()
+        all_pairs = []
+        url = f"{DEXSCREENER_BASE}/search"
         
-        pairs = data.get("pairs", [])
-        
-        # סינון טוקנים חדשים (נוצרו ב-24h האחרונות)
         from datetime import datetime, timedelta, timezone
         now = datetime.now(timezone.utc)
         day_ago = now - timedelta(hours=24)
         
-        new_pairs = []
-        for pair in pairs:
-            created_at_str = pair.get("pairCreatedAt")
-            if not created_at_str:
-                continue
-            
-            try:
-                # Parse timestamp
-                created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-                if created_at > day_ago:
-                    new_pairs.append(pair)
-            except Exception:
-                continue
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Search with multiple queries
+            for query in search_queries:
+                try:
+                    response = await client.get(url, params={"q": query})
+                    response.raise_for_status()
+                    data = response.json()
+                    pairs = data.get("pairs", [])
+                    
+                    # Filter by chain and creation date
+                    for pair in pairs:
+                        if pair.get("chainId") != chain:
+                            continue
+                        
+                        created_at_str = pair.get("pairCreatedAt")
+                        if not created_at_str:
+                            continue
+                        
+                        try:
+                            created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                            if created_at > day_ago:
+                                all_pairs.append(pair)
+                        except Exception:
+                            continue
+                except Exception as e:
+                    logger.warning(f"⚠️ Search query '{query}' failed: {e}")
+                    continue
         
-        # מיון לפי תאריך יצירה (החדשים ביותר קודם)
-        new_pairs.sort(
+        # Remove duplicates
+        seen_addresses = set()
+        unique_pairs = []
+        for pair in all_pairs:
+            pair_addr = pair.get("pairAddress")
+            if pair_addr and pair_addr not in seen_addresses:
+                seen_addresses.add(pair_addr)
+                unique_pairs.append(pair)
+        
+        # Sort by creation date (newest first)
+        unique_pairs.sort(
             key=lambda p: p.get("pairCreatedAt", ""),
             reverse=True
         )
         
-        # קח את הטופ N
-        new_pairs = new_pairs[:limit]
+        # Take top N
+        new_pairs = unique_pairs[:limit]
         
-        # עיצוב הנתונים
+        # Format the data
         formatted = []
         for pair in new_pairs:
             base_token = pair.get("baseToken", {})
