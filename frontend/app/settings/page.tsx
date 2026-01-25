@@ -24,7 +24,8 @@ import {
   RefreshCw,
   Save,
   Wallet,
-  Key
+  Key,
+  AlertCircle
 } from 'lucide-react'
 import { getSettings, updateSettings } from '@/lib/api'
 import { showToast } from '@/components/Toast'
