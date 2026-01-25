@@ -173,6 +173,15 @@ class TokenScanner:
                         symbol = base_token.get('symbol') or profile.get('symbol', 'UNKNOWN')
                         name = base_token.get('name') or profile.get('name', 'Unknown Token')
                         
+                        # 🆕 Helius Fallback - אם אין symbol, נסה Helius!
+                        if symbol == 'UNKNOWN':
+                            logger.debug(f"⚠️ No symbol from DexScreener, trying Helius for {token_address[:20]}...")
+                            metadata = await self._get_token_metadata_from_helius(token_address)
+                            symbol = metadata.get("symbol", "UNKNOWN")
+                            name = metadata.get("name", "Unknown Token")
+                            if symbol != 'UNKNOWN':
+                                logger.info(f"✅ Got metadata from Helius: {symbol} ({name})")
+                        
                         # Extract values safely
                         liquidity = profile.get('liquidity', {})
                         if isinstance(liquidity, dict):
@@ -229,6 +238,47 @@ class TokenScanner:
         # For now, return empty list
         # TODO: Implement when Helius Enhanced APIs are available
         return []
+    
+    async def _get_token_metadata_from_helius(self, mint_address: str) -> Dict:
+        """
+        🆕 מנגנון גיבוי: משיכת שם וסמל ישירות מהבלוקצ'יין דרך Helius DAS API
+        
+        Args:
+            mint_address: כתובת הטוקן
+            
+        Returns:
+            Dict with symbol and name
+        """
+        try:
+            payload = {
+                "jsonrpc": "2.0",
+                "id": "get-asset",
+                "method": "getAsset",
+                "params": {"id": mint_address}
+            }
+            
+            response = await self.client.post(self.rpc_url, json=payload)
+            
+            if response.status_code == 200:
+                result = response.json()
+                asset_data = result.get("result", {})
+                content = asset_data.get("content", {})
+                metadata = content.get("metadata", {})
+                
+                symbol = metadata.get("symbol", "UNKNOWN")
+                name = metadata.get("name", "Unknown Token")
+                
+                return {
+                    "symbol": symbol,
+                    "name": name
+                }
+            else:
+                logger.debug(f"Helius getAsset failed: {response.status_code}")
+                
+        except Exception as e:
+            logger.debug(f"Helius Metadata Fallback error: {e}")
+        
+        return {"symbol": "UNKNOWN", "name": "Unknown Token"}
     
     async def _discover_from_pumpfun(self, hours: int) -> List[Dict]:
         """
