@@ -221,7 +221,7 @@ export default function Dashboard() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL
       if (apiUrl) {
         try {
-          const { data: apiTokens, error: apiError } = await getTokens({ limit: 50 })
+          const { data: apiTokens, error: apiError } = await getTokens({ limit: 1000 }) // ✅ הגדלנו ל-1000 כדי לראות את כל הטוקנים (278 במסד הנתונים)
           if (!apiError && apiTokens?.tokens && apiTokens.tokens.length > 0) {
             // Convert API tokens to our interface
             const convertedTokens = apiTokens.tokens.map((token: any) => ({
@@ -282,7 +282,7 @@ if (isSupabaseConfigured && supabase) {
       .from('scanned_tokens_history')  // ✅ זה השינוי היחיד!
       .select('*')
       .order('final_score', { ascending: false })
-      .limit(50)
+      .limit(1000) // ✅ הגדלנו ל-1000 כדי לראות את כל הטוקנים (278 במסד הנתונים)
 
     if (!error && realTokens && realTokens.length > 0) {
       const convertedTokens = realTokens.map((token: any) => ({

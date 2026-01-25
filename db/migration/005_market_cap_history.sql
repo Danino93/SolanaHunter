@@ -213,15 +213,36 @@ WHERE market_cap IS NOT NULL
 ON CONFLICT DO NOTHING;
 
 -- ============================================================================
+-- 7. עדכון טוקנים קיימים לסריקה מחדש (כדי לקבל market_cap)
+-- ============================================================================
+
+-- עדכן את next_scan_at של כל הטוקנים ללא market_cap
+-- כך שהבוט יסרוק אותם מחדש מהר
+UPDATE scanned_tokens_history
+SET 
+    next_scan_at = NOW(),
+    scan_priority = 100
+WHERE (market_cap IS NULL OR market_cap = 0)
+  AND last_scanned_at < NOW() - INTERVAL '1 hour';
+
+-- ============================================================================
 -- ✅ סיום
 -- ============================================================================
 
 -- בדיקה שהכל עבד
 DO $$
+DECLARE
+    tokens_to_rescan INTEGER;
 BEGIN
+    SELECT COUNT(*) INTO tokens_to_rescan
+    FROM scanned_tokens_history
+    WHERE (market_cap IS NULL OR market_cap = 0)
+      AND last_scanned_at < NOW() - INTERVAL '1 hour';
+    
     RAISE NOTICE '✅ Migration 005 completed successfully!';
     RAISE NOTICE '   Created table: token_market_cap_history';
     RAISE NOTICE '   Created view: token_market_cap_comparison';
     RAISE NOTICE '   Created trigger: trigger_save_market_cap_history';
+    RAISE NOTICE '   Updated % tokens for rescanning to get market_cap', tokens_to_rescan;
     RAISE NOTICE '   Now tracking market cap history for smart bot analysis!';
 END $$;
