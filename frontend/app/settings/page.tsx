@@ -23,22 +23,24 @@ import {
   Settings,
   RefreshCw,
   Save,
-  Key,
-  Wallet,
-  AlertCircle
+  Wallet
 } from 'lucide-react'
 import { getSettings, updateSettings } from '@/lib/api'
 import { showToast } from '@/components/Toast'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export default function SettingsPage() {
   const router = useRouter()
   const [authChecked, setAuthChecked] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState({
     alertThreshold: 85,
     scanInterval: 300,
     maxPositionSize: 5,
     stopLossPct: 15,
   })
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -50,6 +52,7 @@ export default function SettingsPage() {
   }, [router])
 
   const loadSettings = async () => {
+    setLoading(true)
     try {
       const { data, error } = await getSettings()
       if (error) {
@@ -58,20 +61,52 @@ export default function SettingsPage() {
       }
       if (data) {
         setSettings({
-          alertThreshold: data.alert_threshold,
-          scanInterval: data.scan_interval,
-          maxPositionSize: data.max_position_size,
-          stopLossPct: data.stop_loss_pct,
+          alertThreshold: data.alert_threshold || 85,
+          scanInterval: data.scan_interval || 300,
+          maxPositionSize: data.max_position_size || 5,
+          stopLossPct: data.stop_loss_pct || 15,
         })
       }
     } catch (error) {
       showToast('שגיאה בטעינת הגדרות', 'error')
+    } finally {
+      setLoading(false)
     }
   }
 
+  const validateSettings = (): boolean => {
+    const newErrors: Record<string, string> = {}
+    
+    if (settings.alertThreshold < 0 || settings.alertThreshold > 100) {
+      newErrors.alertThreshold = 'סף התראה חייב להיות בין 0 ל-100'
+    }
+    
+    if (settings.scanInterval < 60 || settings.scanInterval > 3600) {
+      newErrors.scanInterval = 'תדירות סריקה חייבת להיות בין 60 ל-3600 שניות'
+    }
+    
+    if (settings.maxPositionSize < 1 || settings.maxPositionSize > 50) {
+      newErrors.maxPositionSize = 'גודל פוזיציה מקסימלי חייב להיות בין 1 ל-50%'
+    }
+    
+    if (settings.stopLossPct < 1 || settings.stopLossPct > 50) {
+      newErrors.stopLossPct = 'Stop-Loss חייב להיות בין 1 ל-50%'
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const saveSettings = async () => {
+    // Validate first
+    if (!validateSettings()) {
+      showToast('יש שגיאות בהגדרות. אנא תקן לפני שמירה.', 'error')
+      return
+    }
+    
+    setSaving(true)
     try {
-      const { error } = await updateSettings({
+      const { data, error } = await updateSettings({
         alert_threshold: settings.alertThreshold,
         scan_interval: settings.scanInterval,
         max_position_size: settings.maxPositionSize,
@@ -81,13 +116,27 @@ export default function SettingsPage() {
         showToast(`שגיאה בשמירת הגדרות: ${error}`, 'error')
         return
       }
+      
+      // Update local state with saved values
+      if (data?.settings) {
+        setSettings({
+          alertThreshold: data.settings.alert_threshold,
+          scanInterval: data.settings.scan_interval,
+          maxPositionSize: data.settings.max_position_size,
+          stopLossPct: data.settings.stop_loss_pct,
+        })
+      }
+      
       showToast('הגדרות נשמרו בהצלחה!', 'success')
+      setErrors({})
     } catch (error) {
       showToast('שגיאה בשמירת הגדרות', 'error')
+    } finally {
+      setSaving(false)
     }
   }
 
-  if (!authChecked) {
+  if (!authChecked || loading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-screen">
@@ -98,8 +147,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <DashboardLayout>
-      <div className="relative">
+    <ErrorBoundary>
+      <DashboardLayout>
+        <div className="relative">
         {/* Header */}
         <header className="border-b border-slate-200/50 bg-white/90 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/90 sticky top-0 z-50 shadow-lg">
           <div className="container mx-auto px-4 py-6">
@@ -114,10 +164,20 @@ export default function SettingsPage() {
               </div>
               <button
                 onClick={saveSettings}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                disabled={saving || loading}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="w-4 h-4" />
-                שמור
+                {saving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    שומר...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    שמור
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -139,12 +199,20 @@ export default function SettingsPage() {
                   </label>
                   <input
                     type="range"
-                    min="70"
+                    min="0"
                     max="100"
                     value={settings.alertThreshold}
-                    onChange={(e) => setSettings({...settings, alertThreshold: Number(e.target.value)})}
+                    onChange={(e) => {
+                      setSettings({...settings, alertThreshold: Number(e.target.value)})
+                      if (errors.alertThreshold) {
+                        setErrors({...errors, alertThreshold: ''})
+                      }
+                    }}
                     className="w-full"
                   />
+                  {errors.alertThreshold && (
+                    <p className="text-xs text-red-500 mt-1">{errors.alertThreshold}</p>
+                  )}
                   <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
                     רק טוקנים עם ציון {settings.alertThreshold}+ יקבלו התראה
                   </p>
@@ -156,10 +224,27 @@ export default function SettingsPage() {
                   </label>
                   <input
                     type="number"
+                    min="60"
+                    max="3600"
                     value={settings.scanInterval}
-                    onChange={(e) => setSettings({...settings, scanInterval: Number(e.target.value)})}
-                    className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
+                    onChange={(e) => {
+                      setSettings({...settings, scanInterval: Number(e.target.value)})
+                      if (errors.scanInterval) {
+                        setErrors({...errors, scanInterval: ''})
+                      }
+                    }}
+                    className={`w-full px-4 py-2 rounded-xl border ${
+                      errors.scanInterval 
+                        ? 'border-red-500 dark:border-red-500' 
+                        : 'border-slate-300 dark:border-slate-600'
+                    } bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100`}
                   />
+                  {errors.scanInterval && (
+                    <p className="text-xs text-red-500 mt-1">{errors.scanInterval}</p>
+                  )}
+                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                    מינימום: 60 שניות, מקסימום: 3600 שניות (שעה)
+                  </p>
                 </div>
               </div>
             </div>
@@ -179,11 +264,22 @@ export default function SettingsPage() {
                   <input
                     type="range"
                     min="1"
-                    max="10"
+                    max="50"
                     value={settings.maxPositionSize}
-                    onChange={(e) => setSettings({...settings, maxPositionSize: Number(e.target.value)})}
+                    onChange={(e) => {
+                      setSettings({...settings, maxPositionSize: Number(e.target.value)})
+                      if (errors.maxPositionSize) {
+                        setErrors({...errors, maxPositionSize: ''})
+                      }
+                    }}
                     className="w-full"
                   />
+                  {errors.maxPositionSize && (
+                    <p className="text-xs text-red-500 mt-1">{errors.maxPositionSize}</p>
+                  )}
+                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                    אחוז מקסימלי מהתיק לכל פוזיציה
+                  </p>
                 </div>
 
                 <div>
@@ -242,7 +338,8 @@ export default function SettingsPage() {
             </div>
           </div>
         </main>
-      </div>
-    </DashboardLayout>
+        </div>
+      </DashboardLayout>
+    </ErrorBoundary>
   )
 }

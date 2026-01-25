@@ -25,6 +25,7 @@ import {
   formatPercent, 
   formatAddress, 
   formatTimeAgo,
+  formatMarketCap,
   getPercentColor,
   copyToClipboard
 } from '@/lib/formatters'
@@ -266,6 +267,7 @@ export default function TokenTable({
             <tr>
               <SortableHeader field="name">טוקן</SortableHeader>
               <SortableHeader field="price">מחיר</SortableHeader>
+              <SortableHeader field="marketCap">שווי שוק</SortableHeader>
               <SortableHeader field="change24h">שינוי 24 שעות</SortableHeader>
               <SortableHeader field="volume24h">נפח</SortableHeader>
               <SortableHeader field="liquidity">נזילות</SortableHeader>
@@ -325,6 +327,11 @@ export default function TokenTable({
                           width={48}
                         />
                       </div>
+                    </td>
+
+                    {/* Market Cap */}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {formatMarketCap(token.marketCap)}
                     </td>
 
                     {/* 24h Change */}

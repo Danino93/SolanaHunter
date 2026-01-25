@@ -137,6 +137,34 @@ export async function getToken(address: string) {
   return apiRequest<Token>(`/api/tokens/${address}`)
 }
 
+export interface TokenMarketCapHistory {
+  token_address: string
+  symbol: string
+  name: string
+  first_scan: {
+    market_cap: number
+    price_usd: number
+    scanned_at: string | null
+  } | null
+  current_scan: {
+    market_cap: number
+    price_usd: number
+    scanned_at: string | null
+  }
+  change: {
+    market_cap_change_pct: number
+    price_change_pct: number
+  }
+  scan_count: number
+  token_created_at: string | null
+  token_age_hours: number | null
+  message?: string
+}
+
+export async function getTokenMarketCapHistory(address: string) {
+  return apiRequest<TokenMarketCapHistory>(`/api/tokens/${address}/market-cap-history`)
+}
+
 export async function searchTokens(query: string) {
   return apiRequest<{ tokens: Token[]; query: string }>(`/api/tokens/search?q=${encodeURIComponent(query)}`)
 }
@@ -187,11 +215,22 @@ export interface BotStats {
   tokens_analyzed: number
   high_score_count: number
   alerts_sent: number
-  uptime_seconds: number
+  uptime_seconds?: number
 }
 
 export async function getBotStats() {
   return apiRequest<BotStats>('/api/bot/stats')
+}
+
+export interface BotHealth {
+  scanner: { status: 'healthy' | 'unhealthy' | 'error' | 'unknown'; message: string }
+  analyzer: { status: 'healthy' | 'unhealthy' | 'error' | 'unknown'; message: string }
+  database: { status: 'healthy' | 'unhealthy' | 'error' | 'unknown'; message: string }
+  telegram: { status: 'healthy' | 'unhealthy' | 'error' | 'unknown'; message: string }
+}
+
+export async function getBotHealth() {
+  return apiRequest<BotHealth>('/api/bot/health')
 }
 
 // ============================================
@@ -297,7 +336,7 @@ export interface TradeHistory {
 
 export async function getTradeHistory(limit: number = 50) {
   return apiRequest<{ trades: TradeHistory[]; total: number }>(
-    `/api/portfolio/trades/history?limit=${limit}`
+    `/api/trading/history?limit=${limit}`
   )
 }
 
@@ -416,8 +455,8 @@ export interface PerformanceData {
   worst_trade: any | null
 }
 
-export async function getPerformance() {
-  return apiRequest<PerformanceData>('/api/analytics/performance')
+export async function getPerformance(timeRange: '7d' | '30d' | '90d' | 'all' = 'all') {
+  return apiRequest<PerformanceData>(`/api/analytics/performance?time_range=${timeRange}`)
 }
 
 export interface TradesAnalysis {
@@ -428,8 +467,8 @@ export interface TradesAnalysis {
   avg_loss: number
 }
 
-export async function getTradesAnalysis() {
-  return apiRequest<TradesAnalysis>('/api/analytics/trades')
+export async function getTradesAnalysis(timeRange: '7d' | '30d' | '90d' | 'all' = 'all') {
+  return apiRequest<TradesAnalysis>(`/api/analytics/trades?time_range=${timeRange}`)
 }
 
 export interface ROIData {
@@ -439,8 +478,8 @@ export interface ROIData {
   profit: number
 }
 
-export async function getROI() {
-  return apiRequest<ROIData>('/api/analytics/roi')
+export async function getROI(timeRange: '7d' | '30d' | '90d' | 'all' = 'all') {
+  return apiRequest<ROIData>(`/api/analytics/roi?time_range=${timeRange}`)
 }
 
 // ============================================

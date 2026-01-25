@@ -191,6 +191,98 @@ async def analyze_token(address: str):
         raise HTTPException(status_code=500, detail=f"אופס, שגיאה: {str(e)}")
 
 
+@router.get("/{address}/market-cap-history")
+async def get_token_market_cap_history(address: str):
+    """
+    Get market cap history comparison for a token
+    Returns: first scan vs current scan market cap
+    """
+    try:
+        supabase = get_supabase_client()
+        if not supabase.enabled:
+            raise HTTPException(status_code=503, detail="Database not available")
+        
+        async with supabase:
+            # Get token basic info
+            tokens = await supabase.get_tokens(limit=1000)
+            token = next((t for t in tokens if t.get("address") == address), None)
+            
+            if not token:
+                raise HTTPException(status_code=404, detail="Token not found")
+            
+            # Get from token_market_cap_history table directly
+            history_response = await supabase._client.get(
+                "/token_market_cap_history",
+                params={
+                    "token_address": f"eq.{address}",
+                    "order": "scanned_at.asc",
+                    "limit": 1000
+                }
+            )
+            
+            if history_response.status_code == 200:
+                history = history_response.json()
+                if history and len(history) > 0:
+                    first = history[0]
+                    latest = history[-1]
+                    
+                    first_mc = float(first.get("market_cap", 0) or 0)
+                    latest_mc = float(latest.get("market_cap", 0) or 0)
+                    first_price = float(first.get("price_usd", 0) or 0)
+                    latest_price = float(latest.get("price_usd", 0) or 0)
+                    
+                    mc_change_pct = ((latest_mc - first_mc) / first_mc * 100) if first_mc > 0 else 0
+                    price_change_pct = ((latest_price - first_price) / first_price * 100) if first_price > 0 else 0
+                    
+                    return {
+                        "token_address": address,
+                        "symbol": token.get("symbol", "UNKNOWN"),
+                        "name": token.get("name", ""),
+                        "first_scan": {
+                            "market_cap": first_mc,
+                            "price_usd": first_price,
+                            "scanned_at": first.get("scanned_at"),
+                        },
+                        "current_scan": {
+                            "market_cap": latest_mc,
+                            "price_usd": latest_price,
+                            "scanned_at": latest.get("scanned_at"),
+                        },
+                        "change": {
+                            "market_cap_change_pct": round(mc_change_pct, 2),
+                            "price_change_pct": round(price_change_pct, 2),
+                        },
+                        "scan_count": len(history),
+                        "token_created_at": token.get("token_created_at"),
+                        "token_age_hours": token.get("token_age_hours"),
+                    }
+            
+            # No history yet - return current values only
+            return {
+                "token_address": address,
+                "symbol": token.get("symbol", "UNKNOWN"),
+                "name": token.get("name", ""),
+                "first_scan": None,
+                "current_scan": {
+                    "market_cap": float(token.get("market_cap", 0) or 0),
+                    "price_usd": float(token.get("price_usd", 0) or 0),
+                    "scanned_at": token.get("last_scanned_at"),
+                },
+                "change": {
+                    "market_cap_change_pct": 0,
+                    "price_change_pct": 0,
+                },
+                "scan_count": 0,
+                "token_created_at": token.get("token_created_at"),
+                "token_age_hours": token.get("token_age_hours"),
+                "message": "אין היסטוריה עדיין - זה הסריקה הראשונה",
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching market cap history: {str(e)}")
+
+
 @router.get("/search")
 async def search_tokens(q: str = Query(..., min_length=1)):
     """Search tokens by symbol or name"""

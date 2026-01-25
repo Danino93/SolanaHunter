@@ -85,28 +85,28 @@ async def get_positions():
                 
                 if current_price is None or current_price == 0:
                     current_price = pos.entry_price  # Final fallback to entry price
-            
-            entry_value = pos.entry_price * pos.amount_tokens
-            current_value = current_price * pos.amount_tokens
-            pnl_usd = current_value - entry_value
-            pnl_pct = (pnl_usd / entry_value * 100) if entry_value > 0 else 0
-            
-            enriched_positions.append({
-                "id": pos.token_mint,
-                "token_address": pos.token_mint,
-                "token_symbol": pos.token_symbol,
-                "token_name": pos.token_symbol,  # TODO: Get from token info
-                "amount_tokens": pos.amount_tokens,
-                "entry_price": pos.entry_price,
-                "current_price": current_price,
-                "entry_value_usd": entry_value,
-                "current_value_usd": current_value,
-                "unrealized_pnl_usd": pnl_usd,
-                "unrealized_pnl_pct": pnl_pct,
-                "stop_loss_price": pos.entry_price * (1 - pos.stop_loss_pct),
-                "stop_loss_pct": pos.stop_loss_pct * 100,  # Convert to percentage
-                "take_profit_1_price": None,  # TODO: Add to Position dataclass
-                "take_profit_2_price": None,  # TODO: Add to Position dataclass
+                
+                entry_value = pos.entry_price * pos.amount_tokens
+                current_value = current_price * pos.amount_tokens
+                pnl_usd = current_value - entry_value
+                pnl_pct = (pnl_usd / entry_value * 100) if entry_value > 0 else 0
+                
+                enriched_positions.append({
+                    "id": pos.token_mint,
+                    "token_address": pos.token_mint,
+                    "token_symbol": pos.token_symbol,
+                    "token_name": pos.token_symbol,  # TODO: Get from token info
+                    "amount_tokens": pos.amount_tokens,
+                    "entry_price": pos.entry_price,
+                    "current_price": current_price,
+                    "entry_value_usd": entry_value,
+                    "current_value_usd": current_value,
+                    "unrealized_pnl_usd": pnl_usd,
+                    "unrealized_pnl_pct": pnl_pct,
+                    "stop_loss_price": pos.entry_price * (1 - pos.stop_loss_pct),
+                    "stop_loss_pct": pos.stop_loss_pct * 100,  # Convert to percentage
+                    "take_profit_1_price": None,  # TODO: Add to Position dataclass
+                    "take_profit_2_price": None,  # TODO: Add to Position dataclass
                 "opened_at": pos.opened_at.isoformat(),  # For frontend compatibility
                 "entry_timestamp": pos.opened_at.isoformat(),  # For database compatibility
             })
@@ -146,8 +146,22 @@ async def get_wallet_info():
         balance_sol = await wallet.get_balance()
         
         # Get SOL price in USD
-        price_fetcher = PriceFetcher()
-        sol_price = await price_fetcher.get_sol_price() or 0.0
+        # Get SOL price from DexScreener (SOL/USDC pair)
+        sol_price = 0.0
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                # SOL/USDC pair on Raydium
+                sol_usdc_url = "https://api.dexscreener.com/latest/dex/pairs/solana/58oQChx4yWmvKdwLLZRBi080ChoZSdPHSkka5gYy2waM"
+                response = await client.get(sol_usdc_url)
+                if response.status_code == 200:
+                    data = response.json()
+                    pairs = data.get("pairs", [])
+                    if pairs:
+                        sol_price = float(pairs[0].get("priceUsd", 0) or 0)
+        except Exception:
+            # Fallback to default SOL price if API fails
+            sol_price = 150.0  # Approximate SOL price
+        
         balance_usd = balance_sol * sol_price
         
         # Get token accounts (holdings)

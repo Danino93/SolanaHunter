@@ -68,15 +68,46 @@ async def sell_token(request: SellRequest):
 @router.get("/history")
 async def get_trade_history(limit: int = 50):
     """
-    Get trade history
-    
-    TODO: Load from database
-    For now, returns empty list
+    Get trade history from Supabase
+    ✅ עכשיו קורא מ-Supabase!
     """
     try:
+        from database.supabase_client import get_supabase_client
+        
+        supabase = get_supabase_client()
+        if not supabase or not supabase.enabled:
+            return {
+                "trades": [],
+                "total": 0,
+            }
+        
+        async with supabase:
+            # Get trades from trade_history table
+            response = await supabase._client.get(
+                "/trade_history",
+                params={
+                    "order": "created_at.desc",
+                    "limit": limit,
+                }
+            )
+            
+            if response.status_code == 200:
+                trades = response.json()
+                return {
+                    "trades": trades,
+                    "total": len(trades),
+                }
+            else:
+                return {
+                    "trades": [],
+                    "total": 0,
+                }
+    except Exception as e:
+        # Log error but return empty list
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to fetch trade history: {e}")
         return {
             "trades": [],
             "total": 0,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching trade history: {str(e)}")

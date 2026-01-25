@@ -84,6 +84,8 @@ class SolanaHunter:
         self.supabase = get_supabase_client()  # Supabase client for database
         self._last_tokens: list[dict] = []
         self._last_scan_ts: float | None = None
+        self._start_time: float | None = None  # Track when bot started
+        self._scan_task: Optional[asyncio.Task] = None  # Background scan task
         self._mode: str = "normal"  # "normal" or "quiet"
         self._paused: bool = False
         self._scan_count: int = 0
@@ -162,7 +164,9 @@ class SolanaHunter:
     
     async def start(self):
         """Start the bot"""
+        import time
         self.running = True
+        self._start_time = time.time()  # Track start time
         
         # Display startup banner
         comm_status = (
@@ -303,6 +307,7 @@ class SolanaHunter:
                                 token["liquidity_usd"] = metrics.liquidity_usd
                                 token["volume_24h"] = metrics.volume_24h
                                 token["price_usd"] = metrics.price_usd
+                                token["market_cap"] = metrics.market_cap  # ✅ FIX: שמירת market cap
                                 token["price_change_5m"] = metrics.price_change_5m
                                 token["price_change_1h"] = metrics.price_change_1h
                                 token["price_change_24h"] = metrics.price_change_24h
