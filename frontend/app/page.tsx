@@ -146,7 +146,7 @@ export default function Dashboard() {
           .channel('dashboard-updates')
           .on(
             'postgres_changes',
-            { event: '*', schema: 'public', table: 'tokens' },
+            { event: '*', schema: 'public', table: 'scanned_tokens_history' },  // ✅ שינוי: האזנה ל-scanned_tokens_history
             (payload) => {
               console.log('🔄 עדכון טוקן:', payload)
               // Reload data when token is updated
