@@ -27,6 +27,15 @@ export default function PerformanceChart({
   type = 'area',
   height = 300,
 }: PerformanceChartProps) {
+  // Handle empty data
+  if (!data || data.length === 0) {
+    return (
+      <div className="w-full h-[300px] flex items-center justify-center text-slate-500 dark:text-slate-400">
+        אין נתונים להצגה
+      </div>
+    )
+  }
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (

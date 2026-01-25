@@ -179,11 +179,13 @@ export default function PortfolioPage() {
       const { data, error } = await getWalletInfo()
       if (error) {
         console.error('Failed to load wallet info:', error)
+        setWalletInfo(null)
       } else {
-        setWalletInfo(data)
+        setWalletInfo(data || null)
       }
     } catch (error) {
       console.error('Error loading wallet info:', error)
+      setWalletInfo(null)
     }
   }
 
@@ -207,6 +209,7 @@ export default function PortfolioPage() {
     if (authChecked) {
       loadPerformanceHistory()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartTimeRange, authChecked])
 
   if (!authChecked) {
