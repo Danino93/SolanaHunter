@@ -358,8 +358,44 @@ class SolanaHunter:
                             except Exception as e:
                                 logger.warning(f"⚠️ Failed to analyze {token.get('symbol', 'unknown')}: {e}")
                         
+                        # Save remaining tokens (without full analysis) to database
+                        # This ensures all discovered tokens appear in the dashboard
+                        if len(tokens) > analyze_limit and self.supabase and self.supabase.enabled:
+                            remaining_tokens = tokens[analyze_limit:]
+                            logger.info(f"💾 Saving {len(remaining_tokens)} additional tokens (without full analysis) to database...")
+                            
+                            for token in remaining_tokens:
+                                try:
+                                    # Prepare basic token data (without full analysis)
+                                    # These will have default scores and can be analyzed later
+                                    basic_token = {
+                                        "address": token.get("address"),
+                                        "symbol": token.get("symbol", "UNKNOWN"),
+                                        "name": token.get("name", ""),
+                                        "created_at": token.get("created_at"),  # Keep creation time
+                                        "source": token.get("source", "dexscreener"),
+                                        # Basic metrics if available
+                                        "price_usd": token.get("price_usd", 0.0),
+                                        "volume_24h": token.get("volume_24h", 0.0),
+                                        "liquidity_sol": token.get("liquidity_sol", 0.0),
+                                        # Default scores (will be updated when fully analyzed)
+                                        "final_score": 0,
+                                        "safety_score": 0,
+                                        "holder_score": 0,
+                                        "grade": "F",
+                                        "category": "POOR",
+                                        "status": "pending_analysis",  # Mark as pending
+                                    }
+                                    
+                                    async with self.supabase:
+                                        saved = await self.supabase.save_token(basic_token)
+                                        if saved:
+                                            logger.debug(f"💾 Saved basic data for {token.get('symbol', 'UNKNOWN')} ({token.get('address', '')[:8]}...)")
+                                except Exception as e:
+                                    logger.warning(f"⚠️ Failed to save basic token {token.get('symbol', 'UNKNOWN')}: {e}")
+                        
                         self.scanner.display_tokens(tokens)
-                        logger.info(f"✅ Discovered {len(tokens)} new tokens")
+                        logger.info(f"✅ Discovered {len(tokens)} new tokens ({analyze_limit} fully analyzed, {len(tokens) - analyze_limit} saved as basic)")
                         self._last_tokens = tokens[:]
                         self._last_scan_ts = asyncio.get_event_loop().time()
                     else:
