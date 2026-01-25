@@ -279,6 +279,37 @@ export async function getPortfolioPerformanceHistory(days: number = 30) {
   )
 }
 
+export interface TradeHistory {
+  id: string
+  position_id?: string
+  trade_type: 'BUY' | 'SELL'
+  token_address: string
+  token_symbol: string
+  token_name?: string
+  amount_tokens: number
+  price_usd: number
+  value_usd: number
+  transaction_signature?: string
+  realized_pnl_usd?: number
+  realized_pnl_pct?: number
+  created_at: string
+}
+
+export async function getTradeHistory(limit: number = 50) {
+  return apiRequest<{ trades: TradeHistory[]; total: number }>(
+    `/api/portfolio/trades/history?limit=${limit}`
+  )
+}
+
+export async function analyzeToken(tokenAddress: string) {
+  return apiRequest<{ success: boolean; token: any; message: string }>(
+    `/api/tokens/${tokenAddress}/analyze`,
+    {
+      method: 'POST',
+    }
+  )
+}
+
 // ============================================
 // Trading API
 // ============================================
@@ -337,15 +368,15 @@ export interface DexToken {
   created_at?: string
 }
 
-export async function getTrendingTokens(limit: number = 20) {
+export async function getTrendingTokens(limit: number = 20, days: number = 7) {
   return apiRequest<{ tokens: DexToken[]; total: number; chain: string }>(
-    `/api/dexscreener/trending?chain=solana&limit=${limit}`
+    `/api/dexscreener/trending?chain=solana&limit=${limit}&days=${days}`
   )
 }
 
-export async function getNewTokens(limit: number = 20) {
+export async function getNewTokens(limit: number = 20, days: number = 7) {
   return apiRequest<{ tokens: DexToken[]; total: number; chain: string }>(
-    `/api/dexscreener/new?chain=solana&limit=${limit}`
+    `/api/dexscreener/new?chain=solana&limit=${limit}&days=${days}`
   )
 }
 

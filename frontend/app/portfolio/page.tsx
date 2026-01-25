@@ -30,9 +30,10 @@ import {
   RefreshCw,
   ArrowUpRight,
   ArrowDownRight,
-  ExternalLink
+  ExternalLink,
+  BarChart3
 } from 'lucide-react'
-import { getPositions, sellPosition, updatePosition, getWalletInfo, WalletInfo, getPortfolioPerformanceHistory, PerformanceHistoryData } from '@/lib/api'
+import { getPositions, sellPosition, updatePosition, getWalletInfo, WalletInfo, getPortfolioPerformanceHistory, PerformanceHistoryData, getTradeHistory, TradeHistory } from '@/lib/api'
 import { showToast } from '@/components/Toast'
 import { formatAddress } from '@/lib/formatters'
 import PerformanceChart from '@/components/PerformanceChart'
@@ -68,6 +69,8 @@ export default function PortfolioPage() {
   const [performanceData, setPerformanceData] = useState<PerformanceHistoryData[]>([])
   const [chartTimeRange, setChartTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d')
   const [editingPosition, setEditingPosition] = useState<Position | null>(null)
+  const [tradeHistory, setTradeHistory] = useState<TradeHistory[]>([])
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -77,8 +80,24 @@ export default function PortfolioPage() {
       loadPositions()
       loadWalletInfo()
       loadPerformanceHistory()
+      loadTradeHistory()
     }
   }, [router])
+
+  const loadTradeHistory = async () => {
+    try {
+      const { data, error } = await getTradeHistory(100)
+      if (error) {
+        console.error('Failed to load trade history:', error)
+        setTradeHistory([])
+      } else {
+        setTradeHistory(data?.trades || [])
+      }
+    } catch (error) {
+      console.error('Error loading trade history:', error)
+      setTradeHistory([])
+    }
+  }
 
   // Real-time updates from Supabase
   useEffect(() => {
@@ -245,10 +264,22 @@ export default function PortfolioPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors ${
+                    showHistory 
+                      ? 'bg-purple-500 text-white hover:bg-purple-600' 
+                      : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  {showHistory ? 'הסתר היסטוריה' : 'היסטוריית עסקאות'}
+                </button>
+                <button
                   onClick={() => {
                     loadPositions()
                     loadWalletInfo()
                     loadPerformanceHistory()
+                    loadTradeHistory()
                   }}
                   disabled={loading}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
@@ -526,6 +557,108 @@ export default function PortfolioPage() {
               </div>
             )}
           </div>
+
+          {/* Trade History Section */}
+          {showHistory && (
+            <div className="bg-white/90 backdrop-blur-xl dark:bg-slate-800/90 rounded-2xl border border-slate-200/50 dark:border-slate-700 shadow-2xl overflow-hidden mt-8">
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  היסטוריית עסקאות
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                  כל העסקאות שביצעת (קנייה ומכירה)
+                </p>
+              </div>
+              {tradeHistory.length === 0 ? (
+                <div className="p-12 text-center text-slate-500 dark:text-slate-400">
+                  <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>אין היסטוריית עסקאות עדיין</p>
+                  <p className="text-xs mt-2">העסקאות יופיעו כאן אחרי שתבצע קנייה או מכירה</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-100/50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 dark:text-slate-400 uppercase">תאריך</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 dark:text-slate-400 uppercase">סוג</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 dark:text-slate-400 uppercase">מטבע</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 dark:text-slate-400 uppercase">כמות</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 dark:text-slate-400 uppercase">מחיר</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 dark:text-slate-400 uppercase">ערך</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 dark:text-slate-400 uppercase">P&L</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 dark:text-slate-400 uppercase">טרנזקציה</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {tradeHistory.map((trade) => (
+                        <tr key={trade.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                          <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+                            {new Date(trade.created_at).toLocaleString('he-IL')}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              trade.trade_type === 'BUY' 
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                            }`}>
+                              {trade.trade_type === 'BUY' ? 'קנייה' : 'מכירה'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">
+                            {trade.token_symbol}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-900 dark:text-slate-100">
+                            {trade.amount_tokens.toFixed(4)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-900 dark:text-slate-100">
+                            ${trade.price_usd.toFixed(6)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-900 dark:text-slate-100">
+                            ${trade.value_usd.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            {trade.realized_pnl_usd !== undefined && trade.realized_pnl_usd !== null ? (
+                              <span className={`font-semibold ${
+                                trade.realized_pnl_usd >= 0 
+                                  ? 'text-green-600 dark:text-green-400' 
+                                  : 'text-red-600 dark:text-red-400'
+                              }`}>
+                                {trade.realized_pnl_usd >= 0 ? '+' : ''}${trade.realized_pnl_usd.toFixed(2)}
+                                {trade.realized_pnl_pct !== undefined && trade.realized_pnl_pct !== null && (
+                                  <span className="ml-1">
+                                    ({trade.realized_pnl_pct >= 0 ? '+' : ''}{trade.realized_pnl_pct.toFixed(2)}%)
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            {trade.transaction_signature ? (
+                              <a
+                                href={`https://solscan.io/tx/${trade.transaction_signature}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 hover:text-blue-600 text-xs flex items-center gap-1"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                צפה
+                              </a>
+                            ) : (
+                              <span className="text-slate-400 text-xs">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </main>
       </div>
 

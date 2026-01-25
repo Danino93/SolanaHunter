@@ -15,8 +15,11 @@
 
 'use client'
 
-import { X, ExternalLink, TrendingUp, Heart, Eye, DollarSign } from 'lucide-react'
+import { useState } from 'react'
+import { X, ExternalLink, TrendingUp, Heart, Eye, DollarSign, RefreshCw } from 'lucide-react'
 import TokenChart from './TokenChart'
+import { analyzeToken } from '@/lib/api'
+import { showToast } from './Toast'
 
 interface Token {
   id: string
@@ -54,6 +57,7 @@ interface TokenDetailModalProps {
   onBuy?: (address: string) => void
   onWatch?: (address: string) => void
   onFavorite?: (address: string) => void
+  onAnalyze?: (token: Token) => Promise<void> | void
 }
 
 export default function TokenDetailModal({
@@ -62,8 +66,35 @@ export default function TokenDetailModal({
   onBuy,
   onWatch,
   onFavorite,
+  onAnalyze,
 }: TokenDetailModalProps) {
+  const [analyzing, setAnalyzing] = useState(false)
+
   if (!token) return null
+
+  const handleAnalyze = async () => {
+    if (analyzing) return
+    setAnalyzing(true)
+    try {
+      showToast('מנתח מטבע...', 'info')
+      const { data, error } = await analyzeToken(token.address)
+      if (error) {
+        showToast('אופס, שגיאה בניתוח', 'error')
+      } else {
+        showToast('ניתוח הושלם בהצלחה!', 'success')
+        if (onAnalyze) {
+          onAnalyze(token)
+        }
+        // Close modal and reload
+        onClose()
+      }
+    } catch (error) {
+      console.error('Error analyzing token:', error)
+      showToast('אופס, שגיאה בניתוח', 'error')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
 
   const getScoreColor = (score: number) => {
     if (score >= 90) return 'text-green-500'
@@ -355,6 +386,17 @@ export default function TokenDetailModal({
 
           {/* Quick Actions */}
           <div className="flex gap-3">
+            {/* Analyze button - show for tokens with score 0 or F grade */}
+            {(token.score === 0 || token.grade === 'F') && (
+              <button
+                onClick={handleAnalyze}
+                disabled={analyzing}
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-5 h-5 ${analyzing ? 'animate-spin' : ''}`} />
+                {analyzing ? 'מנתח...' : 'נתח עכשיו'}
+              </button>
+            )}
             {onBuy && (
               <button
                 onClick={() => {

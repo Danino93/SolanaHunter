@@ -517,13 +517,43 @@ class SolanaHunter:
             f"{wallet_info}"
         )
 
-    def _telegram_top_tokens(self, limit: int = 10) -> str:
+    async def _telegram_top_tokens(self, limit: int = 10) -> str:
         """
         🏆 פקודת /top [N] - טופ N טוקנים
-        מחזיר את הטוקנים הכי טובים מהסריקה האחרונה (ממוינים לפי ציון)
+        מחזיר את הטוקנים הכי טובים מ-Supabase (ממוינים לפי ציון)
+        ✅ עכשיו משתמש ב-Supabase - מסונכרן עם Frontend ו-Backend!
         """
+        # נסה לקבל מ-Supabase קודם
+        if self.supabase and self.supabase.enabled:
+            try:
+                async with self.supabase:
+                    # קבל טוקנים עם ציון גבוה (מ-85 ומעלה), ממוינים לפי ציון
+                    tokens = await self.supabase.get_tokens(limit=limit * 2, min_score=0)  # נקבל יותר כדי למיין
+                    
+                    if tokens:
+                        # מיון לפי ציון (הכי גבוה ראשון)
+                        sorted_tokens = sorted(
+                            tokens, 
+                            key=lambda t: int(t.get("final_score", t.get("score", 0)) or 0), 
+                            reverse=True
+                        )
+                        
+                        rows = []
+                        for t in sorted_tokens[:limit]:
+                            sym = (t.get("symbol") or "N/A").replace("<", "").replace(">", "")
+                            addr = t.get("address", "")
+                            score = int(t.get("final_score", t.get("score", 0)) or 0)
+                            grade = t.get("grade", "F")
+                            rows.append(f"• <b>{sym}</b> — <b>{score}</b>/100 {grade} — <code>{addr[:8]}…</code>")
+                        
+                        if rows:
+                            return "<b>🏆 Top Tokens (from database)</b>\n\n" + "\n".join(rows)
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to get tokens from Supabase for /top: {e}")
+        
+        # Fallback לנתונים בזיכרון (רק אם Supabase לא זמין)
         if not self._last_tokens:
-            return "<b>No recent tokens yet.</b>"
+            return "<b>ℹ️ No tokens found yet. Make sure Supabase is configured.</b>"
 
         # מיון לפי ציון (הכי גבוה ראשון)
         tokens = sorted(self._last_tokens, key=lambda t: int(t.get("final_score", t.get("safety_score", 0)) or 0), reverse=True)
@@ -535,7 +565,7 @@ class SolanaHunter:
             grade = t.get("grade", "")
             rows.append(f"• <b>{sym}</b> — <b>{score}</b>/100 {grade} — <code>{addr[:8]}…</code>")
 
-        return "<b>🏆 Top Tokens (last scan)</b>\n\n" + "\n".join(rows)
+        return "<b>🏆 Top Tokens (from memory cache)</b>\n\n" + "\n".join(rows)
 
     async def _telegram_check_token(self, token_address: str) -> str:
         """
@@ -714,9 +744,32 @@ class SolanaHunter:
         return self._alert_history[-limit:] if len(self._alert_history) > limit else self._alert_history
 
     async def _telegram_search(self, symbol: str) -> list[dict]:
-        """Search tokens by symbol"""
+        """
+        Search tokens by symbol
+        ✅ עכשיו משתמש ב-Supabase - מסונכרן עם Frontend ו-Backend!
+        """
         symbol_upper = symbol.upper()
         results = []
+        
+        # נסה לחפש ב-Supabase קודם
+        if self.supabase and self.supabase.enabled:
+            try:
+                async with self.supabase:
+                    # קבל את כל הטוקנים (או עד 1000)
+                    all_tokens = await self.supabase.get_tokens(limit=1000)
+                    
+                    # חיפוש לפי סימבול
+                    for token in all_tokens:
+                        token_symbol = token.get("symbol", "").upper()
+                        if symbol_upper in token_symbol or symbol_upper == token_symbol:
+                            results.append(token)
+                    
+                    if results:
+                        return results[:20]  # מקסימום 20 תוצאות
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to search tokens from Supabase: {e}")
+        
+        # Fallback לנתונים בזיכרון (רק אם Supabase לא זמין)
         # חיפוש בטוקנים האחרונים
         for token in self._last_tokens:
             if token.get("symbol", "").upper() == symbol_upper:
@@ -804,14 +857,28 @@ class SolanaHunter:
         """Get favorites list"""
         return list(self._favorites.values())
 
-    def _telegram_add_favorite(self, address: str) -> str:
-        """Add token to favorites"""
-        # נסה למצוא את הטוקן בטוקנים האחרונים או בהיסטוריה
+    async def _telegram_add_favorite(self, address: str) -> str:
+        """
+        Add token to favorites
+        ✅ עכשיו מחפש גם ב-Supabase!
+        """
         token = None
-        for t in self._last_tokens:
-            if t.get("address") == address:
-                token = t
-                break
+        
+        # נסה למצוא ב-Supabase קודם
+        if self.supabase and self.supabase.enabled:
+            try:
+                async with self.supabase:
+                    tokens = await self.supabase.get_tokens(limit=1000)
+                    token = next((t for t in tokens if t.get("address") == address), None)
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to search token in Supabase for favorites: {e}")
+        
+        # Fallback לנתונים בזיכרון
+        if not token:
+            for t in self._last_tokens:
+                if t.get("address") == address:
+                    token = t
+                    break
         if not token:
             for alert in self._alert_history:
                 t = alert.get("token", {})
@@ -881,8 +948,41 @@ class SolanaHunter:
         """Get current filters"""
         return self._filters.copy()
 
-    def _telegram_trends(self) -> str:
-        """Get trends"""
+    async def _telegram_trends(self) -> str:
+        """
+        טרנדים - טופ 5 טוקנים
+        ✅ עכשיו משתמש ב-Supabase - מסונכרן עם Frontend ו-Backend!
+        """
+        # נסה לקבל מ-Supabase קודם
+        if self.supabase and self.supabase.enabled:
+            try:
+                async with self.supabase:
+                    tokens = await self.supabase.get_tokens(limit=50, min_score=0)
+                    
+                    if tokens:
+                        # מיון לפי ציון
+                        sorted_tokens = sorted(
+                            tokens, 
+                            key=lambda t: int(t.get("final_score", t.get("score", 0)) or 0), 
+                            reverse=True
+                        )
+                        
+                        top_5 = sorted_tokens[:5]
+                        rows = []
+                        for i, token in enumerate(top_5, 1):
+                            sym = token.get("symbol", "N/A")
+                            score = int(token.get("final_score", token.get("score", 0)) or 0)
+                            rows.append(f"{i}. <b>{sym}</b> — <b>{score}/100</b>")
+                        
+                        if rows:
+                            return (
+                                "<b>📈 טרנדים (טופ 5 מהמסד נתונים)</b>\n\n" + "\n".join(rows) + "\n\n"
+                                "<i>💡 הטוקנים עם הציונים הגבוהים ביותר מהמסד נתונים</i>"
+                            )
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to get trends from Supabase: {e}")
+        
+        # Fallback לנתונים בזיכרון
         if not self._last_tokens:
             return "ℹ️ אין מספיק נתונים לטרנדים כרגע."
         
@@ -893,11 +993,11 @@ class SolanaHunter:
         rows = []
         for i, token in enumerate(top_5, 1):
             sym = token.get("symbol", "N/A")
-            score = token.get("final_score", 0)
+            score = int(token.get("final_score", 0) or 0)
             rows.append(f"{i}. <b>{sym}</b> — <b>{score}/100</b>")
         
         return (
-            "<b>📈 טרנדים (טופ 5)</b>\n\n" + "\n".join(rows) + "\n\n"
+            "<b>📈 טרנדים (טופ 5 מהזיכרון)</b>\n\n" + "\n".join(rows) + "\n\n"
             "<i>💡 הטוקנים עם הציונים הגבוהים ביותר מהסריקה האחרונה</i>"
         )
     

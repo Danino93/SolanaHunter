@@ -26,7 +26,8 @@ DEXSCREENER_API_BASE = "https://api.dexscreener.com"
 @router.get("/trending")
 async def get_trending_tokens(
     chain: str = Query("solana", description="Blockchain (solana, ethereum, etc.)"),
-    limit: int = Query(20, ge=1, le=100, description="Number of tokens to return")
+    limit: int = Query(20, ge=1, le=100, description="Number of tokens to return"),
+    days: int = Query(7, description="Filter tokens created in last N days (0 = all, default: 7)")
 ):
     """
     קבל טוקנים טרנדיים מ-DexScreener
@@ -89,6 +90,17 @@ async def get_trending_tokens(
             if pair_addr and pair_addr not in seen_addresses:
                 seen_addresses.add(pair_addr)
                 unique_pairs.append(pair)
+        
+        # Filter by creation date if days > 0
+        if days > 0:
+            from datetime import datetime, timezone, timedelta
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+            cutoff_timestamp = int(cutoff_date.timestamp() * 1000)  # Convert to milliseconds
+            
+            unique_pairs = [
+                p for p in unique_pairs 
+                if p.get("pairCreatedAt") and int(p.get("pairCreatedAt", 0)) >= cutoff_timestamp
+            ]
         
         # Sort by volume 24h (trending = high volume)
         sorted_pairs = sorted(
@@ -280,7 +292,8 @@ async def get_token_details(token_address: str):
 @router.get("/new")
 async def get_new_tokens(
     chain: str = Query("solana", description="Blockchain"),
-    limit: int = Query(20, ge=1, le=100, description="Number of tokens to return")
+    limit: int = Query(20, ge=1, le=100, description="Number of tokens to return"),
+    days: int = Query(7, description="Filter tokens created in last N days (default: 7)")
 ):
     """
     קבל טוקנים חדשים (נוצרו ב-24 שעות האחרונות)
@@ -299,8 +312,8 @@ async def get_new_tokens(
         url = f"{DEXSCREENER_BASE}/search"
         
         from datetime import datetime, timedelta, timezone
-        now = datetime.now(timezone.utc)
-        day_ago = now - timedelta(hours=24)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_timestamp = int(cutoff_date.timestamp() * 1000)  # Convert to milliseconds
         
         async with httpx.AsyncClient(timeout=15.0) as client:
             # Search with multiple queries
@@ -316,15 +329,16 @@ async def get_new_tokens(
                         if pair.get("chainId") != chain:
                             continue
                         
-                        created_at_str = pair.get("pairCreatedAt")
-                        if not created_at_str:
+                        created_at = pair.get("pairCreatedAt")
+                        if not created_at:
                             continue
                         
+                        # pairCreatedAt is a timestamp (number), not ISO string
                         try:
-                            created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
-                            if created_at > day_ago:
+                            created_at_ts = int(created_at)
+                            if created_at_ts >= cutoff_timestamp:
                                 all_pairs.append(pair)
-                        except Exception:
+                        except (ValueError, TypeError):
                             continue
                 except Exception as e:
                     logger.warning(f"⚠️ Search query '{query}' failed: {e}")

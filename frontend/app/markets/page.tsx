@@ -85,7 +85,7 @@ export default function MarketsPage() {
   const loadTrending = async () => {
     setLoading(true)
     try {
-      const { data, error } = await getTrendingTokens(50)
+      const { data, error } = await getTrendingTokens(50, 7) // Only last 7 days
       if (error) {
         showToast('אופס, שגיאה בטעינת טוקנים טרנדיים', 'error')
         setTokens([])
@@ -104,7 +104,7 @@ export default function MarketsPage() {
   const loadNew = async () => {
     setLoading(true)
     try {
-      const { data, error } = await getNewTokens(50)
+      const { data, error } = await getNewTokens(50, 7) // Only last 7 days
       if (error) {
         showToast('אופס, שגיאה בטעינת טוקנים חדשים', 'error')
         setTokens([])

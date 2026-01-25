@@ -81,7 +81,7 @@ logger = get_logger("telegram")
 
 StatusProvider = Callable[[], Awaitable[str]]  # Changed to async for wallet balance
 CheckProvider = Callable[[str], Awaitable[str]]
-TopProvider = Callable[[int], str]
+TopProvider = Callable[[int], Awaitable[str]]  # ✅ שינוי: עכשיו async כדי לתמוך ב-Supabase
 ScanNowProvider = Callable[[], Awaitable[str]]
 SetThresholdProvider = Callable[[int], str]
 GetThresholdProvider = Callable[[], int]
@@ -98,12 +98,12 @@ UnwatchProvider = Callable[[str], str]
 ListWatchedProvider = Callable[[], list[str]]
 CompareProvider = Callable[[str, str], Awaitable[str]]
 FavoritesProvider = Callable[[], list[dict]]
-AddFavoriteProvider = Callable[[str], str]
+AddFavoriteProvider = Callable[[str], Awaitable[str]]  # ✅ שינוי: עכשיו async כדי לתמוך ב-Supabase
 RemoveFavoriteProvider = Callable[[str], str]
 ExportProvider = Callable[[], str]
 FilterProvider = Callable[[dict], str]
 GetFiltersProvider = Callable[[], dict]
-TrendsProvider = Callable[[], str]
+TrendsProvider = Callable[[], Awaitable[str]]  # ✅ שינוי: עכשיו async כדי לתמוך ב-Supabase
 BuyProvider = Callable[[str, float], Awaitable[str]]  # token_mint, amount_sol
 SellProvider = Callable[[str], Awaitable[str]]  # token_mint
 PortfolioProvider = Callable[[], Awaitable[str]]  # portfolio status
@@ -653,7 +653,8 @@ class TelegramBotController:
             if not self._top_provider:
                 await self.send_message("<b>אין עדיין סריקה אחרונה.</b>", parse_mode="HTML")
                 return
-            await self.send_message(self._top_provider(10), parse_mode="HTML", disable_web_page_preview=True)
+            result = await self._top_provider(10)  # ✅ עכשיו async
+            await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
             return
 
         # /top N (with number)
@@ -670,7 +671,8 @@ class TelegramBotController:
             if not self._top_provider:
                 await self.send_message("<b>אין עדיין סריקה אחרונה.</b>", parse_mode="HTML")
                 return
-            await self.send_message(self._top_provider(limit), parse_mode="HTML", disable_web_page_preview=True)
+            result = await self._top_provider(limit)  # ✅ עכשיו async
+            await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
             return
 
         if text.startswith("/check") or normalized.startswith("check ") or normalized.startswith("בדוק "):
@@ -1019,7 +1021,7 @@ class TelegramBotController:
             
             addr = parts[1].strip()
             if self._add_favorite_provider:
-                result = self._add_favorite_provider(addr)
+                result = await self._add_favorite_provider(addr)  # ✅ עכשיו async
                 await self.send_message(result, parse_mode="HTML")
             else:
                 await self.send_message("אופס, הוספה למועדפים לא זמינה כרגע 😅", parse_mode="HTML")
@@ -1100,7 +1102,7 @@ class TelegramBotController:
         if text in ("/trends", "trends", "טרנדים", "📈 טרנדים"):
             if self._trends_provider:
                 try:
-                    result = self._trends_provider()
+                    result = await self._trends_provider()  # ✅ עכשיו async
                     await self.send_message(result, parse_mode="HTML", disable_web_page_preview=True)
                 except Exception as e:
                     await self.send_message(f"אופס, שגיאה בטרנדים: {self._e(str(e))} 😅", parse_mode="HTML")

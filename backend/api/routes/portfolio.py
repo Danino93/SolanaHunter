@@ -252,6 +252,54 @@ async def get_portfolio_performance_history(days: int = 30):
         raise HTTPException(status_code=500, detail=f"אופס, שגיאה בקבלת היסטוריית ביצועים: {str(e)}")
 
 
+@router.get("/trades/history")
+async def get_trade_history(limit: int = 50):
+    """
+    Get trade history (buy/sell transactions)
+    
+    Args:
+        limit: Maximum number of trades to return
+        
+    Returns:
+        List of trades
+    """
+    solanahunter = get_solanahunter()
+    if not solanahunter:
+        raise HTTPException(status_code=503, detail="Bot not initialized")
+    
+    if not solanahunter.supabase or not solanahunter.supabase.enabled:
+        return {
+            "trades": [],
+            "total": 0,
+        }
+    
+    try:
+        async with solanahunter.supabase:
+            # Get trades from Supabase
+            params = {
+                "order": "created_at.desc",
+                "limit": limit
+            }
+            
+            response = await solanahunter.supabase._client.get("/trade_history", params=params)
+            
+            if response.status_code == 200:
+                trades = response.json()
+                return {
+                    "trades": trades,
+                    "total": len(trades),
+                }
+            else:
+                logger.warning(f"⚠️ Failed to get trade history: {response.status_code}")
+                return {
+                    "trades": [],
+                    "total": 0,
+                }
+    except Exception as e:
+        logger.error(f"❌ Error getting trade history: {e}")
+        raise HTTPException(status_code=500, detail=f"אופס, שגיאה בקבלת היסטוריית עסקאות: {str(e)}")
+
+
 @router.get("/stats")
 async def get_portfolio_stats():
     """

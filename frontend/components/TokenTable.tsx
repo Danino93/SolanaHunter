@@ -17,7 +17,8 @@ import {
   TrendingDown,
   Copy,
   ExternalLink,
-  Search
+  Search,
+  RefreshCw
 } from 'lucide-react'
 import { 
   formatPrice, 
@@ -52,6 +53,7 @@ interface Token {
 interface TokenTableProps {
   tokens: Token[]
   onTokenClick?: (token: Token) => void
+  onTokenAnalyze?: (token: Token) => Promise<void> | void
   showFilters?: boolean
   showPagination?: boolean
   pageSize?: number
@@ -64,11 +66,13 @@ type SortDirection = 'asc' | 'desc'
 export default function TokenTable({
   tokens,
   onTokenClick,
+  onTokenAnalyze,
   showFilters = true,
   showPagination = true,
   pageSize = 20,
   className = '',
 }: TokenTableProps) {
+  const [analyzingToken, setAnalyzingToken] = useState<string | null>(null)
   const [sortField, setSortField] = useState<SortField>('score')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
@@ -79,6 +83,20 @@ export default function TokenTable({
     category: 'all',
     grade: 'all',
   })
+
+  const handleAnalyze = async (token: Token, e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent row click
+    if (analyzingToken) return
+    
+    setAnalyzingToken(token.address)
+    try {
+      if (onTokenAnalyze) {
+        await onTokenAnalyze(token)
+      }
+    } finally {
+      setAnalyzingToken(null)
+    }
+  }
 
   // Sort function
   const handleSort = useCallback((field: SortField) => {
@@ -367,6 +385,21 @@ export default function TokenTable({
                     {/* Actions */}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
+                        {/* Analyze button - only show for tokens with score 0 or F grade */}
+                        {(token.score === 0 || token.grade === 'F') && onTokenAnalyze && (
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => handleAnalyze(token, e)}
+                            disabled={analyzingToken === token.address}
+                            className={`text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300 ${
+                              analyzingToken === token.address ? 'opacity-50 cursor-not-allowed' : ''
+                            }`}
+                            title="נתח עכשיו"
+                          >
+                            <RefreshCw className={`w-4 h-4 ${analyzingToken === token.address ? 'animate-spin' : ''}`} />
+                          </motion.button>
+                        )}
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}

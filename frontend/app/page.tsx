@@ -59,7 +59,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { showToast } from '@/components/Toast'
 import { staggerContainer, staggerItem, fadeInUp } from '@/lib/animations'
 import { formatPrice, formatPercent, formatNumber } from '@/lib/formatters'
-import { getTokens } from '@/lib/api'
+import { getTokens, analyzeToken } from '@/lib/api'
 
 interface Token {
   id: string
@@ -191,6 +191,28 @@ export default function Dashboard() {
       }
     }
   }, [authChecked])
+
+  const handleTokenAnalyze = async (token: any) => {
+    try {
+      showToast('מנתח מטבע...', 'info')
+      const tokenAddress = token.address || (token as any).address
+      if (!tokenAddress) {
+        showToast('אופס, כתובת טוקן לא נמצאה', 'error')
+        return
+      }
+      const { data, error } = await analyzeToken(tokenAddress)
+      if (error) {
+        showToast('אופס, שגיאה בניתוח', 'error')
+      } else {
+        showToast('ניתוח הושלם בהצלחה!', 'success')
+        // Reload data to show updated score
+        await loadData()
+      }
+    } catch (error) {
+      console.error('Error analyzing token:', error)
+      showToast('אופס, שגיאה בניתוח', 'error')
+    }
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -994,6 +1016,7 @@ if (isSupabaseConfigured && supabase) {
                 <TokenTable
                   tokens={tokens}
                   onTokenClick={handleTokenSelect}
+                  onTokenAnalyze={handleTokenAnalyze}
                   showFilters={true}
                   showPagination={true}
                 />
@@ -1286,6 +1309,7 @@ if (isSupabaseConfigured && supabase) {
         onFavorite={(address) => {
           showToast('נוסף למועדפים', 'success')
         }}
+        onAnalyze={handleTokenAnalyze}
       />
     </DashboardLayout>
   )
